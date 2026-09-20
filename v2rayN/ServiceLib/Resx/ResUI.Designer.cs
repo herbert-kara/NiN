@@ -5140,6 +5140,15 @@ namespace ServiceLib.Resx {
         }
         
         /// <summary>
+        ///   查找类似 targetStrategy 的本地化字符串。
+        /// </summary>
+        public static string TbTargetStrategy {
+            get {
+                return ResourceManager.GetString("TbTargetStrategy", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 UDP over TCP 的本地化字符串。
         /// </summary>
         public static string TbUot {

@@ -591,6 +591,9 @@
   <data name="TbDialMode" xml:space="preserve">
     <value>dialMode</value>
   </data>
+  <data name="TbTargetStrategy" xml:space="preserve">
+    <value>targetStrategy</value>
+  </data>
   <data name="TbFingerprint" xml:space="preserve">
     <value>Barmaq izi</value>
   </data>

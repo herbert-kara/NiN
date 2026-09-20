@@ -1085,7 +1085,7 @@
                     x:Name="gridFinalmask"
                     Grid.Row="5"
                     ColumnDefinitions="300,Auto"
-                    RowDefinitions="Auto,Auto">
+                    RowDefinitions="Auto,Auto,Auto">
                     <TextBlock
                         Grid.Row="0"
                         Grid.Column="0"
@@ -1132,6 +1132,20 @@
                         Grid.Row="1"
                         Grid.Column="1"
                         Width="400"
+                        Margin="{StaticResource Margin4}"
+                        HorizontalAlignment="Left" />
+
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Text="{x:Static resx:ResUI.TbTargetStrategy}" />
+                    <ComboBox
+                        x:Name="cmbTargetStrategy"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Width="200"
                         Margin="{StaticResource Margin4}"
                         HorizontalAlignment="Left" />
                 </Grid>

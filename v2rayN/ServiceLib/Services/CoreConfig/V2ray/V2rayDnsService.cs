@@ -57,7 +57,14 @@ public partial class CoreConfigV2rayService
                 _coreConfig.outbounds
                     .Where(t => xraySupportConfigTypeNames.Contains(t.protocol))
                     .ToList()
-                    .ForEach(outbound => outbound.targetStrategy = strategy4Proxy);
+                    .ForEach(outbound =>
+                    {
+                        // PattN: a targetStrategy chosen on the profile wins over this global default
+                        if (outbound.targetStrategy.IsNullOrEmpty())
+                        {
+                            outbound.targetStrategy = strategy4Proxy;
+                        }
+                    });
             }
 
             var strategy4DialProxy = simpleDnsItem?.Strategy4ProxyDial ?? Global.AsIs;

@@ -59,6 +59,8 @@ public partial class CoreConfigV2rayService
             return outbound;
         }
         FillOutbound(outbound);
+        // PattN: per-profile targetStrategy, set on the outbound itself (not in sockopt)
+        outbound.targetStrategy = _node.GetTargetStrategy();
         outbound.tag = baseTagName;
         return outbound;
     }

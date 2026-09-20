@@ -17,6 +17,9 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
     public partial bool MuxEnabled { get; set; }
 
     [Reactive]
+    public partial string TargetStrategy { get; set; }
+
+    [Reactive]
     public partial string Cert { get; set; }
 
     [Reactive]
@@ -293,6 +296,7 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
         CoreType = SelectedSource?.CoreType?.ToString();
         AllowInsecure = SelectedSource?.GetAllowInsecure() == true;
         MuxEnabled = SelectedSource?.MuxEnabled == true;
+        TargetStrategy = SelectedSource?.GetTargetStrategy() ?? Global.AsIs;
         Cert = SelectedSource?.Cert ?? string.Empty;
         CertSha = SelectedSource?.CertSha ?? string.Empty;
 
@@ -395,6 +399,8 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
         SelectedSource.CoreType = CoreType.IsNullOrEmpty() ? null : Enum.Parse<ECoreType>(CoreType);
         SelectedSource.AllowInsecure = AllowInsecure ? Global.StringTrue : Global.StringFalse;
         SelectedSource.MuxEnabled = MuxEnabled;
+        SelectedSource.TargetStrategy = TargetStrategy ?? string.Empty;
+        SelectedSource.TargetStrategy = SelectedSource.GetTargetStrategy() ?? string.Empty;
         SelectedSource.Cert = Cert.IsNullOrEmpty() ? string.Empty : Cert;
         SelectedSource.CertSha = CertSha.IsNullOrEmpty() ? string.Empty : CertSha;
         if (!Global.Networks.Contains(SelectedSource.Network))

@@ -153,6 +153,19 @@ public class FmtHandlerTests
     }
 
     [Test]
+    public async Task GetShareUriAndResolveConfig_Wireguard_ShouldRoundTripDialMode()
+    {
+        // WireGuard builds and reads its query by hand, so it needs its own dialMode handling.
+        var source = CreateWireguardProfile();
+        source.DialMode = "code-1";
+
+        var resolved = await ExportThenImport(source);
+
+        await resolved.DialMode.Should().BeEqualTo(source.DialMode);
+        await AssertExportContains(source, "dialMode=code-1");
+    }
+
+    [Test]
     public async Task GetShareUriAndResolveConfig_Shadowsocks_ShouldRoundTripBasicFields()
     {
         var source = CreateShadowsocksProfile();

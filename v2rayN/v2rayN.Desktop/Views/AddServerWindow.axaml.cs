@@ -31,6 +31,7 @@ public partial class AddServerWindow : WindowBase<AddServerViewModel>
         cmbFingerprint.ItemsSource = Global.Fingerprints;
         cmbFingerprint2.ItemsSource = Global.Fingerprints;
         cmbAlpn.ItemsSource = Global.Alpns;
+        cmbTargetStrategy.ItemsSource = Global.TargetStrategies;
 
         gridTlsMore.IsVisible = false;
 
@@ -191,6 +192,7 @@ public partial class AddServerWindow : WindowBase<AddServerViewModel>
 
             this.Bind(ViewModel, vm => vm.SelectedSource.Finalmask, v => v.txtFinalmask.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.SelectedSource.DialMode, v => v.txtDialMode.Text).DisposeWith(disposables);
+            this.Bind(ViewModel, vm => vm.TargetStrategy, v => v.cmbTargetStrategy.SelectedValue).DisposeWith(disposables);
 
             this.BindCommand(ViewModel, vm => vm.FetchCertCmd, v => v.btnFetchCert).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.FetchCertChainCmd, v => v.btnFetchCertChain).DisposeWith(disposables);
