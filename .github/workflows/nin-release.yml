@@ -34,6 +34,8 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Protect NiN customizations
         run: python .github/scripts/nin_guard.py
+      - name: C# syntax pre-flight
+        run: python .github/scripts/nin_cs_syntax.py
       - name: Automation unit tests
         run: python -B -m unittest discover -s .github/scripts -p 'test_nin_guard.py'
       - name: Tray palette tests

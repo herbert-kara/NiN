@@ -16,9 +16,12 @@ public static class NiNRelease
             TimeSpan.FromMilliseconds(100));
 
     public static string? SelectTag(List<GitHubRelease>? releases, bool preRelease = false) => releases?
-        .Where(r => !r.Draft && (preRelease || !r.Prerelease) && r.TagName != null && ReleaseTag.IsMatch(r.TagName))
-            && r.Assets?.Any(a => a.Name == "NiN-windows-64.zip") == true
-            && r.Assets?.Any(a => a.Name == "NiN-windows-64-desktop.zip") == true)
+        .Where(r => !r.Draft
+                 && (preRelease || !r.Prerelease)
+                 && r.TagName != null
+                 && ReleaseTag.IsMatch(r.TagName)
+                 && r.Assets?.Any(a => a.Name == "NiN-windows-64.zip") == true
+                 && r.Assets?.Any(a => a.Name == "NiN-windows-64-desktop.zip") == true)
         .Where(r => new SemanticVersion(r.TagName).ToStandardVersionString("v") == r.TagName)
         .OrderByDescending(r => new SemanticVersion(r.TagName))
         .Select(r => r.TagName).FirstOrDefault();

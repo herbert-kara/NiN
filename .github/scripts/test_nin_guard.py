@@ -16,6 +16,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import nin_cs_syntax
 import nin_guard  # noqa: E402
 
 REPO = Path(nin_guard.ROOT)
@@ -36,6 +38,7 @@ TEXT_FILES = [
     'v2rayN/v2rayN/v2rayN.csproj',
     'v2rayN/v2rayN.Desktop/v2rayN.Desktop.csproj',
     '.github/workflows/nin-release.yml',
+    '.github/scripts/nin_cs_syntax.py',
 ]
 NI_ICON = 'v2rayN/v2rayN.Desktop/Assets/NotifyIcon1.ico'
 WPF_XAML = 'v2rayN/v2rayN/Views/ProfilesView.xaml'
@@ -58,6 +61,11 @@ class NiNGuardFailClosedTest(unittest.TestCase):
         _copy(REPO / ASSET_MANIFEST, cls.pristine / ASSET_MANIFEST)
         for rel in TEXT_FILES:
             _copy(REPO / rel, cls.pristine / rel)
+        # The guard also runs a C# delimiter pre-flight over these.
+        for rel in nin_cs_syntax.WATCHED:
+            src = REPO / rel
+            if src.exists() and not (cls.pristine / rel).exists():
+                _copy(src, cls.pristine / rel)
         for rel in json.loads((REPO / ASSET_MANIFEST).read_text(encoding='utf-8')):
             _copy(REPO / rel, cls.pristine / rel)
 

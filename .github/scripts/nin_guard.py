@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import json
+import sys
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -31,7 +32,20 @@ def check():
         if hashlib.sha256((ROOT / file).read_bytes()).hexdigest() != expected:
             raise RuntimeError(f'NiN icon/flag changed: {file}')
     check_release_package_layout()
+    check_cs_syntax()
     print('NiN identity, updater, flags, and automatic lookup guards passed')
+
+
+def check_cs_syntax():
+    """Run the C# delimiter pre-flight over the files NiN edits.
+
+    Local compilation is not available on this machine and CI is the only build,
+    so an unbalanced delimiter in a hand-edited .cs file used to reach the runner
+    and fail the whole ServiceLib build. Cheap to check, so check it here.
+    """
+    sys.path.insert(0, str(ROOT / '.github/scripts'))
+    import nin_cs_syntax
+    nin_cs_syntax.check(ROOT)
 
 
 def check_release_package_layout():
@@ -48,6 +62,8 @@ def check_release_package_layout():
         raise RuntimeError('release zip must archive the package CONTENTS, not the folder')
     if "is not at the zip root" not in text:
         raise RuntimeError('release workflow must assert NiN.exe/AmazTool.exe are at the zip root')
+    if "nin_cs_syntax.py" not in text:
+        raise RuntimeError('release workflow must run the C# syntax pre-flight before building')
 
 
 if __name__ == '__main__':
