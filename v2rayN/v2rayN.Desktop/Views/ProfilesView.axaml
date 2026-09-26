@@ -1,4 +1,4 @@
-<UserControl
+﻿<UserControl
     x:Class="v2rayN.Desktop.Views.ProfilesView"
     xmlns="https://github.com/avaloniaui"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -243,18 +243,36 @@
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
 
-                    <DataGridTemplateColumn SortMemberPath="FlagStatus" Tag="FlagStatus">
+                    <DataGridTemplateColumn SortMemberPath="Remarks" Tag="Remarks">
                         <DataGridTemplateColumn.Header>
-                            <TextBlock Text="{x:Static resx:ResUI.LvFlagged}"
-                                       ToolTip.Tip="{x:Static resx:ResUI.TipFlagged}" />
+                            <TextBlock Text="{x:Static resx:ResUI.LvRemarks}"/>
                         </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Image Width="20" Height="14"
-                                       HorizontalAlignment="Center"
-                                       VerticalAlignment="Center"
-                                       Source="{Binding FlagStatus, Converter={StaticResource FlagStatusConverter}}"
-                                       ToolTip.Tip="{Binding FlagStatusText}" />
+                                <StackPanel Margin="{StaticResource MarginLr8}" Orientation="Horizontal">
+                                    <!-- Exit test country -->
+                                    <Image Width="20" Height="14" Margin="0,0,6,0"
+                                           Source="{Binding ExitCountryCode, Converter={StaticResource CountryFlagConverter}}"
+                                           ToolTip.Tip="Exit (measured)" />
+                                    <!-- Server country -->
+                                    <Image Width="20" Height="14" Margin="0,0,6,0"
+                                           Source="{Binding ServerCountryCode, Converter={StaticResource CountryFlagConverter}}"
+                                           ToolTip.Tip="Server location" />
+                                    <!-- Reputation verdict badge -->
+                                    <Image Width="20" Height="14"
+                                           Source="{Binding FlagStatus, Converter={StaticResource FlagStatusConverter}}"
+                                           ToolTip.Tip="{Binding FlagStatusText}" />
+                                    <Label
+                                        Margin="{StaticResource MarginLr4}"
+                                        Classes="Solid Red"
+                                        Content="{x:Static resx:ResUI.TipActiveServer}"
+                                        IsVisible="{Binding IsActive}"
+                                        Theme="{DynamicResource TagLabel}" />
+                                    <TextBlock
+                                        HorizontalAlignment="Center"
+                                        VerticalAlignment="Center"
+                                        Text="{Binding Remarks}" />
+                                </StackPanel>
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
