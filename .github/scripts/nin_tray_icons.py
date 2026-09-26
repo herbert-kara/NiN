@@ -1,4 +1,4 @@
-"""Generate readable status icons, retaining the existing NI monogram.
+﻿"""Generate readable status icons, retaining the existing NI monogram.
 
 Run explicitly after changing the palette; Pillow is needed only by artwork tooling.
 """
@@ -6,7 +6,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
-COLORS = [(51, 153, 204), (220, 38, 38), (147, 51, 234), (22, 128, 61)]
+COLORS = [(51, 153, 204), (147, 51, 234), (220, 38, 38), (22, 128, 61)]
 SIZES = [(s, s) for s in (16, 24, 32, 48, 64, 128, 256)]
 
 

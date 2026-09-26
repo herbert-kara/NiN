@@ -28,6 +28,8 @@ TEXT_FILES = [
     'v2rayN/ServiceLib/Models/Dto/ProfileItemModel.cs',
     'v2rayN/v2rayN/Views/ProfilesView.xaml',
     'v2rayN/v2rayN/Base/MyDGCountryColumn.cs',
+    'v2rayN/ServiceLib/Services/ServerFlaggedService.cs',
+    'v2rayN/v2rayN/Base/MyDGFlagColumn.cs',
     'v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml',
     'v2rayN/v2rayN/v2rayN.csproj',
     'v2rayN/v2rayN.Desktop/v2rayN.Desktop.csproj',

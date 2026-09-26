@@ -10,11 +10,13 @@ def check():
     required = {
         'v2rayN/ServiceLib/Global.cs': ['AppName = "NiN"', '"herbert-kara/NiN"'],
         'v2rayN/ServiceLib/Services/UpdateService.cs': ['NiNRelease.SelectTag'],
-        'v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs': ['ServerCountryService.Instance.ResolveAsync'],
+        'v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs': ['ServerCountryService.Instance.ResolveAsync', 'ServerFlaggedService.Instance.ResolveAsync'],
         'v2rayN/ServiceLib/Models/Dto/ProfileItemModel.cs': ['ServerCountryCode', 'CountryCode'],
         'v2rayN/v2rayN/Views/ProfilesView.xaml': ['<base:MyDGCountryColumn'],
         'v2rayN/v2rayN/Base/MyDGCountryColumn.cs': ['CountryCode'],
-        'v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml': ['CountryFlagConverter'],
+        'v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml': ['CountryFlagConverter', 'FlagStatusConverter'],
+        'v2rayN/ServiceLib/Services/ServerFlaggedService.cs': ['proxycheck.io', 'EFlagStatus.Flagged'],
+        'v2rayN/v2rayN/Base/MyDGFlagColumn.cs': ['FlagStatus'],
         'v2rayN/v2rayN/v2rayN.csproj': ['<AssemblyName>NiN</AssemblyName>'],
         'v2rayN/v2rayN.Desktop/v2rayN.Desktop.csproj': ['<AssemblyName>NiN</AssemblyName>'],
     }

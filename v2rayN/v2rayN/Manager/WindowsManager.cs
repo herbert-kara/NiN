@@ -1,4 +1,4 @@
-using System.Drawing;
+﻿using System.Drawing;
 using System.Windows.Media.Imaging;
 
 namespace v2rayN.Manager;
@@ -64,7 +64,8 @@ public sealed class WindowsManager
             var index = (int)config.SystemProxyItem.SysProxyType;
             if (index > 0)
             {
-                color = (new[] { Color.Red, Color.Purple, Color.DarkGreen, Color.Orange, Color.DarkSlateBlue, Color.RoyalBlue })[index - 1];
+                // Purple marks the active/connected state; red is reserved for "no system proxy".
+                color = (new[] { Color.Purple, Color.Red, Color.DarkGreen, Color.Orange, Color.DarkSlateBlue, Color.RoyalBlue })[index - 1];
             }
 
             var width = 128;

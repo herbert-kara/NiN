@@ -4,7 +4,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
-COLORS = [(51, 153, 204), (220, 38, 38), (147, 51, 234), (22, 128, 61)]
+COLORS = [(51, 153, 204), (147, 51, 234), (220, 38, 38), (22, 128, 61)]
 
 class NiNIdentityTests(unittest.TestCase):
     def test_display_brand_preserves_update_identity(self):
