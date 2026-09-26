@@ -378,45 +378,62 @@ public partial class ProfilesViewModel : MyReactiveObject
         await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
         var snapshot = ProfileItems.ToList();
 
-        // Two facts per config, each geolocated from the server's own public IP:
-        // the endpoint/CDN country, and the anti-fraud reputation verdict.
-        // Both are written to whatever instance is currently in ProfileItems, not
-        // to the captured object: RefreshServers replaces the whole collection, so a
-        // refresh landing mid-lookup used to throw the result away and leave the
-        // second flag blank.
+        // One reputation lookup per config yields both facts we display: the
+        // anti-fraud verdict and the country of the server's own public IP.
+        // The country comes from the same response rather than a second provider:
+        // ipwho.is proved unreachable for some networks while proxycheck.io was not,
+        // so one working call beats two where one of them silently returns nothing.
+        //
+        // Results are written to whichever instance is currently in ProfileItems,
+        // never to the captured object: RefreshServers replaces the whole collection,
+        // so a refresh landing mid-lookup used to throw the result away.
         _ = Task.Run(async () =>
         {
+            var checkedCount = 0;
+            var missingCount = 0;
             try
             {
                 foreach (var item in snapshot)
                 {
                     // Complex/custom configs have no single server address to check.
                     if (item.ConfigType.IsComplexType() || item.ConfigType == EConfigType.Custom) continue;
-
-                    var country = await ServerCountryService.Instance.ResolveAsync(item.Address);
-                    if (country != null)
-                    {
-                        RxSchedulers.MainThreadScheduler.Schedule(() =>
-                        {
-                            var live = ProfileItems.FirstOrDefault(t => t.IndexId == item.IndexId);
-                            if (live != null) live.ServerCountryCode = country;
-                        });
-                    }
-
+                    checkedCount++;
+                    var indexId = item.IndexId;
                     var verdict = await ServerFlaggedService.Instance.ResolveAsync(item.Address);
-                    if (verdict == null) continue;
+                    var country = verdict?.CountryCode;
+                    if (country == null)
+                    {
+                        // Fallback only: the reputation response had no country.
+                        country = await ServerCountryService.Instance.ResolveAsync(item.Address);
+                    }
+                    if (verdict == null && country == null)
+                    {
+                        // Silently blank columns are the hardest kind of bug to
+                        // report, so count the misses and say so once at the end.
+                        missingCount++;
+                        continue;
+                    }
                     RxSchedulers.MainThreadScheduler.Schedule(() =>
                     {
-                        var live = ProfileItems.FirstOrDefault(t => t.IndexId == item.IndexId);
+                        var live = ProfileItems.FirstOrDefault(t => t.IndexId == indexId);
                         if (live == null) return;
-                        live.FlagStatus = verdict.Status;
-                        live.FlagRisk = verdict.Risk;
-                        live.FlagType = verdict.Type;
+                        if (country != null) live.ServerCountryCode = country;
+                        if (verdict != null)
+                        {
+                            live.FlagStatus = verdict.Status;
+                            live.FlagRisk = verdict.Risk;
+                            live.FlagType = verdict.Type;
+                        }
                     });
                 }
             }
             catch (OperationCanceledException) { }
-            catch (Exception ex) { Logging.SaveLog("Server country and flagged lookup", ex); }
+            catch (Exception ex) { Logging.SaveLog("Server reputation and country lookup", ex); }
+            finally
+            {
+                Logging.SaveLog("Server reputation and country lookup",
+                    $"checked={checkedCount} withoutResult={missingCount}");
+            }
         });
     }
 
