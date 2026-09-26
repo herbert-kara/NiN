@@ -220,7 +220,7 @@ public class ServerFlaggedServiceTests
     [Arguments(EFlagStatus.Clean, "nin_flag_clean.png")]
     [Arguments(EFlagStatus.Flagged, "nin_flag_flagged.png")]
     [Arguments(EFlagStatus.Unknown, "nin_flag_unknown.png")]
-    public void StatusFlag_IsEmbeddedAndOpenable(EFlagStatus status, string fileName)
+    public async Task StatusFlag_IsEmbeddedAndOpenable(EFlagStatus status, string fileName)
     {
         var names = typeof(ProfileCountry).Assembly.GetManifestResourceNames();
         await (names.Contains($"ServiceLib.Resources.Flags.{fileName}")).Should().BeTrue();
@@ -229,7 +229,7 @@ public class ServerFlaggedServiceTests
     }
 
     [Test]
-    public void StatusFlag_ColoursAreDistinctPerState()
+    public async Task StatusFlag_ColoursAreDistinctPerState()
     {
         // The three flags must not look alike; compare raw bytes of the embedded assets.
         var blobs = new[]
@@ -248,7 +248,7 @@ public class ServerFlaggedServiceTests
     }
 
     [Test]
-    public void FlagCode_UnknownIsTheDefault()
+    public async Task FlagCode_UnknownIsTheDefault()
     {
         await ProfileCountry.FlagCode(EFlagStatus.Unknown).Should().BeEqualTo("nin_flag_unknown");
         await ProfileCountry.FlagCode(EFlagStatus.Clean).Should().BeEqualTo("nin_flag_clean");
