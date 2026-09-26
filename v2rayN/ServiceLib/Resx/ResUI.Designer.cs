@@ -2077,6 +2077,33 @@ namespace ServiceLib.Resx {
         }
         
         /// <summary>
+        ///   查找类似 EchOutbound needs a &quot;tag&quot; that is not empty, not direct or block, and does not start with proxy 的本地化字符串。
+        /// </summary>
+        public static string MsgEchOutboundInvalidTag {
+            get {
+                return ResourceManager.GetString("MsgEchOutboundInvalidTag", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 EchOutbound requires EchConfigList 的本地化字符串。
+        /// </summary>
+        public static string MsgEchOutboundNeedsEchConfigList {
+            get {
+                return ResourceManager.GetString("MsgEchOutboundNeedsEchConfigList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 The tag &quot;{0}&quot; of EchOutbound is already used by another outbound 的本地化字符串。
+        /// </summary>
+        public static string MsgEchOutboundTagConflict {
+            get {
+                return ResourceManager.GetString("MsgEchOutboundTagConflict", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 Failed to import subscription content 的本地化字符串。
         /// </summary>
         public static string MsgFailedImportSubscription {
@@ -2194,7 +2221,7 @@ namespace ServiceLib.Resx {
         }
         
         /// <summary>
-        ///   查找类似 Not Support 的本地化字符串。
+        ///   查找类似 Not Supported 的本地化字符串。
         /// </summary>
         public static string MsgNotSupport {
             get {
@@ -3183,6 +3210,15 @@ namespace ServiceLib.Resx {
         public static string TbEchConfigList {
             get {
                 return ResourceManager.GetString("TbEchConfigList", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   查找类似 EchOutbound 的本地化字符串。
+        /// </summary>
+        public static string TbEchOutbound {
+            get {
+                return ResourceManager.GetString("TbEchOutbound", resourceCulture);
             }
         }
         

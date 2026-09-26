@@ -286,24 +286,13 @@
                             Margin="{StaticResource Margin4}"
                             VerticalAlignment="Center"
                             Text="{x:Static resx:ResUI.TbFakeIP}" />
-                        <Grid
+                        <ToggleSwitch
+                            x:Name="togFakeIP"
                             Grid.Row="3"
                             Grid.Column="1"
-                            ColumnDefinitions="Auto,*">
-                            <ToggleSwitch
-                                x:Name="togFakeIP"
-                                Grid.Column="0"
-                                Margin="{StaticResource Margin4}"
-                                HorizontalAlignment="Left"
-                                VerticalAlignment="Center" />
-                            <ComboBox
-                                x:Name="cmbFakeIPRange"
-                                Grid.Column="1"
-                                Margin="{StaticResource Margin4}"
-                                HorizontalAlignment="Stretch"
-                                VerticalAlignment="Center"
-                                IsEditable="True" />
-                        </Grid>
+                            Margin="{StaticResource Margin4}"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Center" />
                         <TextBlock
                             Grid.Row="3"
                             Grid.Column="2"

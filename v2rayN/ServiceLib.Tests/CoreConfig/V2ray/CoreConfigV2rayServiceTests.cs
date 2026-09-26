@@ -629,6 +629,53 @@ public class CoreConfigV2rayServiceTests
     }
 
     [Test]
+    public async Task GenerateClientConfigContent_FakeIP_ShouldLeaveFakeDnsPoolsToXrayDefaults()
+    {
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        config.SimpleDNSItem.FakeIP = true;
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray) with
+        {
+            RoutingItem = new RoutingItem
+            {
+                Id = "r-dns-fakeip",
+                Remarks = "dns-fakeip",
+                RuleSet = JsonUtils.Serialize(new List<RulesItem>
+                {
+                    new()
+                    {
+                        Enabled = true, RuleType = ERuleType.DNS, OutboundTag = Global.ProxyTag, Domain = ["geosite:google"],
+                    }
+                }),
+                DomainStrategy = Global.AsIs,
+                DomainStrategy4Singbox = string.Empty,
+            }
+        };
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        // PattN: no "fakedns" block, so Xray-core applies its default fake IP pools
+        var root = JsonUtils.ParseJson(result.Data!.ToString())!.AsObject();
+        await root.ContainsKey("fakedns").Should().BeFalse();
+
+        var cfg = JsonUtils.Deserialize<V2rayConfig>(result.Data!.ToString())!;
+        var dns = JsonUtils.Deserialize<Dns4Ray>(JsonUtils.Serialize(cfg.dns))!;
+        var dnsServers = dns.servers
+            .Select(s => JsonUtils.Deserialize<DnsServer4Ray>(JsonUtils.Serialize(s)))
+            .Where(s => s is not null)
+            .Cast<DnsServer4Ray>()
+            .ToList();
+
+        var hasFakeDnsServer = dnsServers.Any(s =>
+            s.address == "fakedns"
+            && s.domains?.Contains("geosite:google") == true);
+        await hasFakeDnsServer.Should().BeTrue();
+    }
+
+    [Test]
     public async Task GenerateClientConfigContent_RawDnsEnabled_ShouldUseCustomDnsConfig()
     {
         var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
@@ -715,6 +762,32 @@ public class CoreConfigV2rayServiceTests
     }
 
     [Test]
+    public async Task GenerateClientConfigContent_Tun_ShouldEnableAutoSystemDns()
+    {
+        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, false);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var cfg = JsonUtils.Deserialize<V2rayConfig>(result.Data!.ToString())!;
+        var tunInbound = cfg.inbounds.FirstOrDefault(i => i.protocol == "tun");
+
+        await tunInbound.Should().NotBeNull();
+        await tunInbound!.settings.autoSystemDNS.Should().BeEqualTo(true);
+
+        // Xray-core takes over system DNS only when it can derive an address from an IPv4 gateway
+        // and a query to that address on port 53 is routed to a "dns" outbound.
+        await tunInbound.settings.gateway.Should().Contain(x => !x.Contains(':'));
+        await cfg.routing.rules.Should().Contain(r =>
+            r.port == "53" && r.inboundTag != null && r.inboundTag.Contains("tun") && r.outboundTag == Global.DnsOutboundTag);
+        await cfg.outbounds.Should().Contain(o => o.tag == Global.DnsOutboundTag && o.protocol == "dns");
+    }
+
+    [Test]
     public async Task GenerateClientConfigContent_TunRouteExcludeAddress_ShouldSkipIPv6RangesWithoutGlobalIPv6()
     {
         var config = CoreConfigTestFactory.CreateConfigWithTunRouteExcludeAddress(ECoreType.Xray);
@@ -777,6 +850,323 @@ public class CoreConfigV2rayServiceTests
         await tunInbound!.settings.autoSystemRoutingTable.Should().NotContain("0.0.0.0/0");
         await tunInbound!.settings.autoSystemRoutingTable.Should().Contain("10.0.0.0/32");
         await tunInbound!.settings.autoSystemRoutingTable.Should().Contain("10.0.0.2/31");
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_EchOutbound_ShouldBeAppendedLastAndUsedByEchSockopt()
+    {
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        // tcpKeepAliveIdle is not in the typed sockopt model: the outbound has to reach the config as written.
+        var node = CreateEchNode("n1", "node-1", """
+            {
+              "tag": "ech-out",
+              "protocol": "freedom",
+              "streamSettings": { "sockopt": { "tcpKeepAliveIdle": 100 } }
+            }
+            """);
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        await JsonNode.DeepEquals(outbounds[^1], JsonNode.Parse(node.EchOutbound)).Should().BeTrue();
+        await EchDialerProxy(outbounds, Global.ProxyTag).Should().BeEqualTo("ech-out");
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_EchOutboundSharedByPolicyGroup_ShouldBeAppendedOnce()
+    {
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        const string echOutbound = """{"tag": "ech-out", "protocol": "freedom"}""";
+        var context = CreateEchGroupContext(config,
+            CreateEchNode("n1", "node-1", echOutbound),
+            CreateEchNode("n2", "node-2", echOutbound));
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        await outbounds.Count(o => o?["tag"]?.GetValue<string>() == "ech-out").Should().BeEqualTo(1);
+        await outbounds[^1]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out");
+        await EchDialerProxy(outbounds, "proxy-1-node-1").Should().BeEqualTo("ech-out");
+        await EchDialerProxy(outbounds, "proxy-2-node-2").Should().BeEqualTo("ech-out");
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_DifferentEchOutboundsWithOneTag_ShouldEachKeepTheirOwn()
+    {
+        // The tag only links a proxy outbound to its ECH outbound, so the second one is renumbered.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var context = CreateEchGroupContext(config,
+            CreateEchNode("n1", "node-1", """{"tag": "ech-out", "protocol": "freedom"}"""),
+            CreateEchNode("n2", "node-2", """{"tag": "ech-out", "protocol": "blackhole"}"""));
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        await EchDialerProxy(outbounds, "proxy-1-node-1").Should().BeEqualTo("ech-out");
+        await EchDialerProxy(outbounds, "proxy-2-node-2").Should().BeEqualTo("ech-out-2");
+        await outbounds[^2]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out");
+        await outbounds[^2]!["protocol"]!.GetValue<string>().Should().BeEqualTo("freedom");
+        await outbounds[^1]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out-2");
+        await outbounds[^1]!["protocol"]!.GetValue<string>().Should().BeEqualTo("blackhole");
+    }
+
+    [Test]
+    public async Task GenerateClientSpeedtestConfig_ProfilesWithEchOutbounds_ShouldEachKeepTheirOwn()
+    {
+        // A batch speed test puts unrelated profiles in one config, where one tag often names different ECH outbounds.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var n1 = CreateEchNode("n1", "node-1", """{"tag": "ech", "protocol": "freedom"}""");
+        var n2 = CreateEchNode("n2", "node-2", """{"tag": "ech", "protocol": "freedom", "settings": {"domainStrategy": "UseIPv4"}}""");
+        var context = CoreConfigTestFactory.CreateContext(config, n1, ECoreType.Xray);
+        context.AllProxiesMap[n2.IndexId] = n2;
+        List<ServerTestItem> selecteds =
+        [
+            new() { IndexId = n1.IndexId, ConfigType = n1.ConfigType, Port = n1.Port },
+            new() { IndexId = n2.IndexId, ConfigType = n2.ConfigType, Port = n2.Port },
+        ];
+
+        var result = new CoreConfigV2rayService(context).GenerateClientSpeedtestConfig(selecteds);
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        var dialerProxies = outbounds
+            .Where(o => o?["protocol"]?.GetValue<string>() == "vmess")
+            .Select(o => o?["streamSettings"]?["tlsSettings"]?["echSockopt"]?["dialerProxy"]?.GetValue<string>())
+            .ToList();
+        await dialerProxies.Should().HaveCount(2);
+        await dialerProxies[0].Should().BeEqualTo("ech");
+        await dialerProxies[1].Should().BeEqualTo("ech-2");
+        await outbounds[^2]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech");
+        await outbounds[^1]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-2");
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_EchOutboundTagUsedByAnotherOutbound_ShouldFail()
+    {
+        // In TUN mode the config has a "dns" outbound of its own.
+        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, false);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CreateEchNode("n1", "node-1", """{"tag": "dns", "protocol": "freedom"}""");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeFalse();
+        await result.Msg.Should().BeEqualTo(string.Format(ResUI.MsgEchOutboundTagConflict, Global.DnsOutboundTag));
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_EchOutboundWithoutTls_ShouldBeLeftOut()
+    {
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CreateEchNode("n1", "node-1", """{"tag": "ech-out", "protocol": "freedom"}""");
+        node.StreamSecurity = string.Empty;
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        await ParseOutbounds(result).Any(o => o?["tag"]?.GetValue<string>() == "ech-out").Should().BeFalse();
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_EchOutboundWithFullConfigTemplate_ShouldComeAfterTheTemplate()
+    {
+        // The ECH outbound is appended after the template is merged, so it stays last and keeps
+        // no proxy detour, which the template would otherwise add to a socks outbound like this one.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CreateEchNode("n1", "node-1", """
+            {"tag": "ech-out", "protocol": "socks", "settings": {"servers": [{"address": "203.0.113.1", "port": 1080}]}}
+            """);
+        var template = new FullConfigTemplateItem
+        {
+            Id = "t1",
+            Remarks = "template",
+            Enabled = true,
+            CoreType = ECoreType.Xray,
+            ProxyDetour = "template-out",
+            Config = """
+                {
+                  "outbounds": [ { "tag": "template-out", "protocol": "freedom" } ]
+                }
+                """,
+        };
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray, fullConfigTemplate: template);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        await outbounds.Any(o => o?["tag"]?.GetValue<string>() == "template-out").Should().BeTrue();
+        await outbounds[^1]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out");
+        await outbounds[^1]!["streamSettings"].Should().BeNull();
+    }
+
+    [Test]
+    public async Task GenerateClientSpeedtestConfig_EchOutbound_ShouldBeAppendedLast()
+    {
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CreateEchNode("n1", "node-1", """{"tag": "ech-out", "protocol": "freedom"}""");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientSpeedtestConfig(10999);
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        await outbounds[^1]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out");
+        await EchDialerProxy(outbounds, Global.ProxyTag).Should().BeEqualTo("ech-out");
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_NumberedEchTagUsedByTheTemplate_ShouldMoveOn()
+    {
+        // The user never wrote "ech-out-2", so it moves on to a free number instead of failing the config,
+        // and only the generated outbound that points at it follows.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var n1 = CreateEchNode("n1", "node-1", """{"tag": "ech-out", "protocol": "freedom"}""");
+        var n2 = CreateEchNode("n2", "node-2", """{"tag": "ech-out", "protocol": "blackhole"}""");
+        var group = CoreConfigTestFactory.CreatePolicyGroupNode(ECoreType.Xray, "g1", "group", [n1.IndexId, n2.IndexId]);
+        var template = new FullConfigTemplateItem
+        {
+            Id = "t1",
+            Remarks = "template",
+            Enabled = true,
+            CoreType = ECoreType.Xray,
+            Config = """
+                {
+                  "outbounds": [
+                    { "tag": "ech-out-2", "protocol": "freedom" },
+                    {
+                      "tag": "template-tls",
+                      "protocol": "vless",
+                      "streamSettings": { "security": "tls", "tlsSettings": { "echSockopt": { "dialerProxy": "ech-out-2" } } }
+                    }
+                  ]
+                }
+                """,
+        };
+        var context = CoreConfigTestFactory.CreateContext(config, group, ECoreType.Xray, fullConfigTemplate: template);
+        context.AllProxiesMap[n1.IndexId] = n1;
+        context.AllProxiesMap[n2.IndexId] = n2;
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        await EchDialerProxy(outbounds, "proxy-1-node-1").Should().BeEqualTo("ech-out");
+        await EchDialerProxy(outbounds, "proxy-2-node-2").Should().BeEqualTo("ech-out-3");
+        await EchDialerProxy(outbounds, "template-tls").Should().BeEqualTo("ech-out-2");
+        await outbounds[^2]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out");
+        await outbounds[^1]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out-3");
+        await outbounds[^1]!["protocol"]!.GetValue<string>().Should().BeEqualTo("blackhole");
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_TemplateOutboundWithRepeatedKey_ShouldStillGetTheEchOutbound()
+    {
+        // Xray takes the last of repeated keys, and the tag check before the append reads them the same way.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CreateEchNode("n1", "node-1", """{"tag": "ech-out", "protocol": "freedom"}""");
+        var template = new FullConfigTemplateItem
+        {
+            Id = "t1",
+            Remarks = "template",
+            Enabled = true,
+            CoreType = ECoreType.Xray,
+            Config = """
+                {
+                  "outbounds": [ { "tag": "template-out", "protocol": "blackhole", "protocol": "freedom" } ]
+                }
+                """,
+        };
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray, fullConfigTemplate: template);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        await result.Data!.ToString()!.Should().Contain("template-out");
+        var outbounds = ParseOutbounds(result);
+        await outbounds[^1]!["tag"]!.GetValue<string>().Should().BeEqualTo("ech-out");
+        await EchDialerProxy(outbounds, Global.ProxyTag).Should().BeEqualTo("ech-out");
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_EchOutboundWithRepeatedKey_ShouldBeLeftOut()
+    {
+        // Validation stops such a profile before a real start; the proxy outbound must keep its TLS settings.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CreateEchNode("n1", "node-1", """{"tag": "ech-out", "protocol": "freedom", "settings": {"x": 1, "x": 2}}""");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var outbounds = ParseOutbounds(result);
+        var proxy = outbounds.First(o => o?["tag"]?.GetValue<string>() == Global.ProxyTag)!;
+        var serverName = proxy["streamSettings"]?["tlsSettings"]?["serverName"]?.GetValue<string>();
+        await serverName.Should().BeEqualTo("example.com");
+        await EchDialerProxy(outbounds, Global.ProxyTag).Should().BeNull();
+        await outbounds.Any(o => o?["tag"]?.GetValue<string>() == "ech-out").Should().BeFalse();
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_Twice_ShouldAppendTheEchOutboundOnce()
+    {
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.Xray);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CreateEchNode("n1", "node-1", """{"tag": "ech-out", "protocol": "freedom"}""");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        new CoreConfigV2rayService(context).GenerateClientConfigContent();
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        await ParseOutbounds(result).Count(o => o?["tag"]?.GetValue<string>() == "ech-out").Should().BeEqualTo(1);
+    }
+
+    private static ProfileItem CreateEchNode(string indexId, string remarks, string echOutbound)
+    {
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, indexId, remarks);
+        node.StreamSecurity = Global.StreamSecurity;
+        node.Sni = "example.com";
+        node.EchConfigList = "cloudflare-ech.com+https://1.1.1.1/dns-query";
+        node.EchOutbound = echOutbound;
+        return node;
+    }
+
+    private static CoreConfigContext CreateEchGroupContext(Config config, ProfileItem n1, ProfileItem n2)
+    {
+        var group = CoreConfigTestFactory.CreatePolicyGroupNode(ECoreType.Xray, "g1", "group", [n1.IndexId, n2.IndexId]);
+        var context = CoreConfigTestFactory.CreateContext(config, group, ECoreType.Xray);
+        context.AllProxiesMap[n1.IndexId] = n1;
+        context.AllProxiesMap[n2.IndexId] = n2;
+        context.AllProxiesMap[group.IndexId] = group;
+        return context;
+    }
+
+    private static JsonArray ParseOutbounds(RetResult result)
+    {
+        return JsonNode.Parse(result.Data!.ToString()!)!["outbounds"]!.AsArray();
+    }
+
+    private static string? EchDialerProxy(JsonArray outbounds, string tag)
+    {
+        var outbound = outbounds.First(o => o?["tag"]?.GetValue<string>() == tag);
+        return outbound?["streamSettings"]?["tlsSettings"]?["echSockopt"]?["dialerProxy"]?.GetValue<string>();
     }
 
     [Test]

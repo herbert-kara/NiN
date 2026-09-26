@@ -1797,4 +1797,16 @@ The "Get Certificate" action may fail if a self-signed certificate is used or if
   <data name="menuNewUpdate" xml:space="preserve">
     <value>New Update</value>
   </data>
+  <data name="TbEchOutbound" xml:space="preserve">
+    <value>EchOutbound</value>
+  </data>
+  <data name="MsgEchOutboundNeedsEchConfigList" xml:space="preserve">
+    <value>EchOutbound به EchConfigList نیاز دارد</value>
+  </data>
+  <data name="MsgEchOutboundInvalidTag" xml:space="preserve">
+    <value>EchOutbound باید یک "tag" غیرخالی داشته باشد که direct یا block نباشد و با proxy شروع نشود</value>
+  </data>
+  <data name="MsgEchOutboundTagConflict" xml:space="preserve">
+    <value>تگ "{0}" در EchOutbound قبلاً توسط outbound دیگری استفاده شده است</value>
+  </data>
 </root>

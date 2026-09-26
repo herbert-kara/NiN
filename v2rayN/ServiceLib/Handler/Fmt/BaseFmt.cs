@@ -4,6 +4,29 @@ public class BaseFmt
 {
     private static string UrlEncodeSafe(string? value) => Utils.UrlEncode(value ?? string.Empty);
 
+    // PattN: JSON options such as echOutbound travel in share links on one line and are stored
+    // indented, as fm is; text that is not JSON is kept as it is
+    private static readonly JsonSerializerOptions ShareJsonOptions = new()
+    {
+        WriteIndented = false,
+        DefaultIgnoreCondition = JsonIgnoreCondition.Never,
+        Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+    };
+
+    private static readonly JsonSerializerOptions StoredJsonOptions = new(ShareJsonOptions) { WriteIndented = true };
+
+    protected static string ToShareJson(string json)
+    {
+        var node = JsonUtils.ParseJson(json);
+        return node != null ? JsonUtils.Serialize(node, ShareJsonOptions) : json;
+    }
+
+    protected static string FromShareJson(string json)
+    {
+        var node = JsonUtils.ParseJson(json);
+        return node != null ? JsonUtils.Serialize(node, StoredJsonOptions) : json;
+    }
+
     protected static string GetIpv6(string address)
     {
         if (Utils.IsIpv6(address))
@@ -71,6 +94,10 @@ public class BaseFmt
         if (item.EchConfigList.IsNotEmpty())
         {
             dicQuery.Add("ech", Utils.UrlEncode(item.EchConfigList));
+        }
+        if (item.EchOutbound.IsNotEmpty())
+        {
+            dicQuery.Add("echOutbound", Utils.UrlEncode(ToShareJson(item.EchOutbound)));
         }
         if (item.VerifyPeerCertByName.IsNotEmpty())
         {
@@ -221,6 +248,8 @@ public class BaseFmt
         item.SpiderX = GetQueryDecoded(query, "spx");
         item.Mldsa65Verify = GetQueryDecoded(query, "pqv");
         item.EchConfigList = GetQueryDecoded(query, "ech");
+        var echOutboundDecoded = GetQueryDecoded(query, "echOutbound");
+        item.EchOutbound = echOutboundDecoded.IsNotEmpty() ? FromShareJson(echOutboundDecoded) : string.Empty;
         item.VerifyPeerCertByName = GetQueryDecoded(query, "vcn");
         item.CertSha = GetQueryDecoded(query, "pcs");
         item.DialMode = GetQueryDecoded(query, "dialMode");

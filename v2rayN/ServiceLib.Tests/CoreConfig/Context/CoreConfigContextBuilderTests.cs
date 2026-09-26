@@ -83,6 +83,71 @@ public class CoreConfigContextBuilderTests
         await groupA.GetProtocolExtra().ChildItems.Should().BeEqualTo(leaf.IndexId);
     }
 
+    [Test]
+    [Arguments("""{"tag": "ech-out", "protocol": "vless", "settings": {"vnext": [{"address": "ech.example", "port": 443, "users": []}]}}""")]
+    [Arguments("""{"tag": "ech-out", "protocol": "socks", "settings": {"servers": [{"address": "ech.example", "port": 1080}]}}""")]
+    [Arguments("""{"tag": "ech-out", "protocol": "trojan", "settings": {"address": "ech.example", "port": 443, "password": "x"}}""")]
+    [Arguments("""{"tag": "ech-out", "protocol": "wireguard", "settings": {"address": ["172.16.0.2/32"], "peers": [{"endpoint": "ech.example:2408"}, {"endpoint": "[2606:4700::1]:2408"}]}}""")]
+    public async Task ResolveNodeAsync_EchOutboundServerDomain_ShouldBeProtected(string echOutbound)
+    {
+        // PattN: the ECH config query goes through the ECH outbound, so the domain of its server has to
+        // resolve directly, like the node's own address.
+        var config = CoreConfigTestFactory.CreateConfig();
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, NewId("ech"), "ech");
+        node.StreamSecurity = Global.StreamSecurity;
+        node.EchConfigList = "cloudflare-ech.com+https://1.1.1.1/dns-query";
+        node.EchOutbound = echOutbound;
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var (_, validatorResult) = await CoreConfigContextBuilder.ResolveNodeAsync(context, node, false);
+
+        await validatorResult.Success.Should().BeTrue();
+        await context.ProtectDomainList.Should().BeEquivalentTo(["example.com", "cloudflare-ech.com", "ech.example"]);
+    }
+
+    [Test]
+    [Arguments("cloudflare-ech.com+https://dns.example/dns-query", "example.com,cloudflare-ech.com,dns.example")]
+    [Arguments("cloudflare-ech.com+h2c://dns.example/dns-query", "example.com,cloudflare-ech.com,dns.example")]
+    [Arguments("cloudflare-ech.com+udp://dns.example:53", "example.com,cloudflare-ech.com,dns.example")]
+    [Arguments("https://dns.example/dns-query", "example.com,dns.example")]
+    [Arguments("cloudflare-ech.com+https://1.1.1.1/dns-query", "example.com,cloudflare-ech.com")]
+    [Arguments("cloudflare-ech.com+https://[2606:4700:4700::1111]/dns-query", "example.com,cloudflare-ech.com")]
+    public async Task ResolveNodeAsync_EchDnsServerDomain_ShouldBeProtected(string echConfigList, string protectedDomains)
+    {
+        // PattN: Xray resolves the domain of the DNS server that it sends the ECH config query to, so that
+        // domain has to resolve directly, like the node's own address. An IP needs no DNS.
+        var config = CoreConfigTestFactory.CreateConfig();
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, NewId("ech-dns"), "ech-dns");
+        node.StreamSecurity = Global.StreamSecurity;
+        node.EchConfigList = echConfigList;
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+
+        var (_, validatorResult) = await CoreConfigContextBuilder.ResolveNodeAsync(context, node, false);
+
+        await validatorResult.Success.Should().BeTrue();
+        await context.ProtectDomainList.Should().BeEquivalentTo(protectedDomains.Split(','));
+    }
+
+    [Test]
+    public async Task ResolveNodeAsync_EchDnsServerDomain_ShouldBeLeftToXray()
+    {
+        // PattN: sing-box never dials the DNS server of echConfigList; it queries the name before the "+"
+        // through its own DNS, so only that name is protected.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.sing_box);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.sing_box, NewId("ech-dns"), "ech-dns");
+        node.StreamSecurity = Global.StreamSecurity;
+        node.EchConfigList = "cloudflare-ech.com+https://dns.example/dns-query";
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.sing_box);
+
+        var (_, validatorResult) = await CoreConfigContextBuilder.ResolveNodeAsync(context, node, false);
+
+        await validatorResult.Success.Should().BeTrue();
+        await context.ProtectDomainList.Should().BeEquivalentTo(["example.com", "cloudflare-ech.com"]);
+    }
+
     private static string NewId(string prefix)
     {
         return $"{prefix}-{Guid.NewGuid():N}";

@@ -81,6 +81,13 @@ public partial class CoreConfigV2rayService
                     tunInbound.settings.gateway.Add(address6);
                 }
 
+                // PattN: on Linux with systemd-resolved, Xray points the system resolver at the tun, so
+                // system DNS goes through Xray (and the port 53 rule) instead of leaking past the tunnel,
+                // as the tun's dns list already does on Windows. Other platforms ignore it, and Xray leaves
+                // DNS alone when its own DNS could loop through the system resolver ("localhost", which
+                // DHCP DNS becomes here).
+                tunInbound.settings.autoSystemDNS = true;
+
                 var bindInterface = _config.CoreBasicItem.BindInterface?.TrimEx();
                 if (!bindInterface.IsNullOrEmpty())
                 {

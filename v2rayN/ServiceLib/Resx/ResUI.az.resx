@@ -1923,4 +1923,16 @@ Təyin edildikdə sertifikat sabitlənəcək və "Təhlükəsiz olmayan əlaqəy
   <data name="TbSortingProcess" xml:space="preserve">
     <value>Proses</value>
   </data>
+  <data name="TbEchOutbound" xml:space="preserve">
+    <value>EchOutbound</value>
+  </data>
+  <data name="MsgEchOutboundNeedsEchConfigList" xml:space="preserve">
+    <value>EchOutbound üçün EchConfigList tələb olunur</value>
+  </data>
+  <data name="MsgEchOutboundInvalidTag" xml:space="preserve">
+    <value>EchOutbound-da boş olmayan, direct və ya block olmayan və proxy ilə başlamayan "tag" olmalıdır</value>
+  </data>
+  <data name="MsgEchOutboundTagConflict" xml:space="preserve">
+    <value>EchOutbound-un "{0}" tag-ı artıq başqa outbound tərəfindən istifadə olunur</value>
+  </data>
 </root>

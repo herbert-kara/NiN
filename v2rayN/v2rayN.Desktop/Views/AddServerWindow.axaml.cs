@@ -180,6 +180,7 @@ public partial class AddServerWindow : WindowBase<AddServerViewModel>
             this.Bind(ViewModel, vm => vm.CertTip, v => v.labCertPinning.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.Cert, v => v.txtCert.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.SelectedSource.EchConfigList, v => v.txtEchConfigList.Text).DisposeWith(disposables);
+            this.Bind(ViewModel, vm => vm.SelectedSource.EchOutbound, v => v.txtEchOutbound.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.SelectedSource.VerifyPeerCertByName, v => v.txtVerifyPeerCertByName.Text).DisposeWith(disposables);
 
             //reality
@@ -255,6 +256,8 @@ public partial class AddServerWindow : WindowBase<AddServerViewModel>
                 cmbCoreType.IsEnabled = false;
                 cmbFingerprint.IsEnabled = false;
                 gridFinalmask.IsVisible = false;
+                tbEchOutbound.IsVisible = false;
+                btnEchOutbound.IsVisible = false;
 
                 cmbCongestionControl8.ItemsSource = Global.TuicCongestionControls;
                 break;
@@ -275,6 +278,8 @@ public partial class AddServerWindow : WindowBase<AddServerViewModel>
                 lstStreamSecurity.Add(Global.StreamSecurityReality);
                 cmbCoreType.IsEnabled = false;
                 gridFinalmask.IsVisible = false;
+                tbEchOutbound.IsVisible = false;
+                btnEchOutbound.IsVisible = false;
                 break;
 
             case EConfigType.Naive:
@@ -283,6 +288,8 @@ public partial class AddServerWindow : WindowBase<AddServerViewModel>
                 gridTransport.IsVisible = false;
                 cmbCoreType.IsEnabled = false;
                 gridFinalmask.IsVisible = false;
+                tbEchOutbound.IsVisible = false;
+                btnEchOutbound.IsVisible = false;
                 cmbFingerprint.IsEnabled = false;
                 cmbAlpn.IsEnabled = false;
                 txtCipherSuites.IsEnabled = false;

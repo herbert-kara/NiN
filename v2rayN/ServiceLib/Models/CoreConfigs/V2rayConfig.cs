@@ -4,7 +4,6 @@ public class V2rayConfig
 {
     public Log4Ray log { get; set; }
     public object dns { get; set; }
-    public FakeDns4Ray? fakedns { get; set; }
     public List<Inbounds4Ray> inbounds { get; set; }
     public List<Outbounds4Ray> outbounds { get; set; }
     public Routing4Ray routing { get; set; }
@@ -53,12 +52,6 @@ public class Log4Ray
     public string? loglevel { get; set; }
 }
 
-public class FakeDns4Ray
-{
-    public string? ipPool { get; set; }
-    public long? poolSize { get; set; }
-}
-
 public class Inbounds4Ray
 {
     public string tag { get; set; }
@@ -99,6 +92,8 @@ public class Inboundsettings4Ray
     public List<string>? autoSystemRoutingTable { get; set; }
 
     public string? autoOutboundsInterface { get; set; }
+
+    public bool? autoSystemDNS { get; set; }
 
     public List<string>? dns { get; set; }
 }

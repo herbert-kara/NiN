@@ -396,6 +396,13 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
             NoticeManager.Instance.Enqueue(ResUI.InvalidHttpOutboundHeaders);
             return;
         }
+        // PattN: the ECH outbound needs EchConfigList and a tag of its own
+        var echOutboundError = NodeValidator.ValidateEchOutbound(SelectedSource);
+        if (echOutboundError != null)
+        {
+            NoticeManager.Instance.Enqueue(echOutboundError);
+            return;
+        }
         SelectedSource.CoreType = CoreType.IsNullOrEmpty() ? null : Enum.Parse<ECoreType>(CoreType);
         SelectedSource.AllowInsecure = AllowInsecure ? Global.StringTrue : Global.StringFalse;
         SelectedSource.MuxEnabled = MuxEnabled;

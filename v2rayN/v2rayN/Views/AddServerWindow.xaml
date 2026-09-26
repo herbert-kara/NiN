@@ -1603,20 +1603,35 @@
                         Style="{StaticResource DefTextBox}" />
 
                     <TextBlock
+                        x:Name="tbEchOutbound"
                         Grid.Row="7"
                         Grid.Column="0"
                         Margin="{StaticResource Margin4}"
                         VerticalAlignment="Center"
                         Style="{StaticResource ToolbarTextBlock}"
-                        Text="{x:Static resx:ResUI.TbVerifyPeerCertByName}" />
-                    <TextBox
-                        x:Name="txtVerifyPeerCertByName"
+                        Text="{x:Static resx:ResUI.TbEchOutbound}" />
+                    <materialDesign:PopupBox
+                        x:Name="btnEchOutbound"
                         Grid.Row="7"
                         Grid.Column="1"
-                        Width="400"
-                        Margin="{StaticResource Margin4}"
                         HorizontalAlignment="Left"
-                        Style="{StaticResource DefTextBox}" />
+                        VerticalAlignment="Center"
+                        StaysOpen="True"
+                        Style="{StaticResource MaterialDesignToolForegroundPopupBox}">
+                        <StackPanel>
+                            <TextBox
+                                x:Name="txtEchOutbound"
+                                Width="400"
+                                Margin="{StaticResource Margin4}"
+                                AcceptsReturn="True"
+                                HorizontalScrollBarVisibility="Auto"
+                                MaxLines="8"
+                                MinLines="4"
+                                Style="{StaticResource MyOutlinedTextBox}"
+                                TextWrapping="NoWrap"
+                                VerticalScrollBarVisibility="Auto" />
+                        </StackPanel>
+                    </materialDesign:PopupBox>
 
                     <TextBlock
                         Grid.Row="8"
@@ -1624,9 +1639,25 @@
                         Margin="{StaticResource Margin4}"
                         VerticalAlignment="Center"
                         Style="{StaticResource ToolbarTextBlock}"
+                        Text="{x:Static resx:ResUI.TbVerifyPeerCertByName}" />
+                    <TextBox
+                        x:Name="txtVerifyPeerCertByName"
+                        Grid.Row="8"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}"
+                        HorizontalAlignment="Left"
+                        Style="{StaticResource DefTextBox}" />
+
+                    <TextBlock
+                        Grid.Row="9"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ToolbarTextBlock}"
                         Text="{x:Static resx:ResUI.TbCertPinning}" />
                     <StackPanel
-                        Grid.Row="8"
+                        Grid.Row="9"
                         Grid.Column="1"
                         VerticalAlignment="Center"
                         Orientation="Horizontal">

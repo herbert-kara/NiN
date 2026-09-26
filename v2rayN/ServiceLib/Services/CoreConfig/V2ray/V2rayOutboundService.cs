@@ -337,6 +337,12 @@ public partial class CoreConfigV2rayService
                     // For legacy xray compatibility, remove this in the future
                     tlsSettings.echForceQuery = "full";
                 }
+                // PattN: the ECH config query goes through the profile's ECH outbound, which is
+                // appended to the config after every other outbound (AppendEchOutbounds)
+                if (NodeValidator.ValidateEchOutbound(_node, out var echOutbound) == null && echOutbound != null)
+                {
+                    tlsSettings.echSockopt = new Sockopt4Ray { dialerProxy = AddEchOutbound(echOutbound) };
+                }
                 var certs = CertPemManager.ParsePemChain(_node.Cert);
                 if (certs.Count > 0)
                 {

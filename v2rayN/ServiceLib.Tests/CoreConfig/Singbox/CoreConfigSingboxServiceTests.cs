@@ -22,6 +22,42 @@ public class CoreConfigSingboxServiceTests
     }
 
     [Test]
+    [Arguments(false, false, false, true)]
+    [Arguments(true, false, false, false)]
+    [Arguments(false, true, false, false)]
+    [Arguments(false, true, true, true)]
+    public async Task GenerateClientConfigContent_FakeIP_ShouldUseXrayDefaultFakeIPRanges(
+        bool blockAAAAQuery, bool tunEnabled, bool tunIPv6Address, bool expectIPv6Range)
+    {
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.sing_box);
+        config.SimpleDNSItem.FakeIP = true;
+        config.SimpleDNSItem.BlockAAAAQuery = blockAAAAQuery;
+        config.TunModeItem.EnableTun = tunEnabled;
+        config.TunModeItem.EnableIPv6Address = tunIPv6Address;
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.sing_box);
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.sing_box);
+
+        var result = new CoreConfigSingboxService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue().Because($"ret msg: {result.Msg}");
+        var cfg = JsonUtils.Deserialize<SingboxConfig>(result.Data!.ToString())!;
+        var fakeip = cfg.dns.servers.Single(s => s.tag == Global.SingboxFakeDNSTag);
+
+        await fakeip.type.Should().BeEqualTo("fakeip");
+        await fakeip.inet4_range.Should().BeEqualTo("198.18.0.0/15");
+        if (expectIPv6Range)
+        {
+            await fakeip.inet6_range.Should().BeEqualTo("2001:2::/48");
+        }
+        else
+        {
+            await fakeip.inet6_range.Should().BeNull();
+        }
+    }
+
+    [Test]
     public async Task GenerateClientConfigContent_TunWithLoopbackPreSocks_ShouldKeepMixedInbound()
     {
         var config = CoreConfigTestFactory.CreateConfig(ECoreType.sing_box);

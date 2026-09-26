@@ -42,16 +42,21 @@ public partial class CheckUpdateViewModel : MyReactiveObject
         this.WhenAnyValue(x => x.EnableUpdateViaProxy)
             .Subscribe(c => _ = OnUpdateViaProxyChanged());
 
-        this.WhenAnyValue(
-        x => x.EnableUpdateViaProxy,
-        y => y == true)
-            .Subscribe(c => _ = OnUpdateViaProxyChanged());
+        AppEvents.HasUpdateNotified
+         .AsObservable()
+         .ObserveOn(RxSchedulers.MainThreadScheduler)
+         .Subscribe(bl => RefreshCheckUpdateItems(bl));
 
-        RefreshCheckUpdateItems();
+        RefreshCheckUpdateItems(true);
     }
 
-    private void RefreshCheckUpdateItems()
+    private void RefreshCheckUpdateItems(bool hasUpdate)
     {
+        if (!hasUpdate)
+        {
+            return;
+        }
+
         var models = CoreInfoManager.Instance.GetCheckUpdateCoreTypes()
                         .Select(t => GetCheckUpdateModel(t))
                         .ToList();

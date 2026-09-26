@@ -57,6 +57,22 @@ public class HyRealmTests
     }
 
     [Test]
+    public async Task GetShareUriAndResolveConfig_Hy2Realm_ShouldRoundTripFinalmask()
+    {
+        // PattN: realm links carry fm too, as the other Hysteria2 links do.
+        const string finalmask = """{"udp":[{"type":"salamander","settings":{"password":"fm-pass"}}]}""";
+        var str = $"hysteria2+realm://mytoken@rendezvous.example.com/my-cabin-1f3a8c2e9b?auth=your_password&fm={Utils.UrlEncode(finalmask)}#remark";
+
+        var resolved = Hysteria2Fmt.ResolveRealm(str, out _);
+        var uri = Hysteria2Fmt.ToUri(resolved);
+        var again = Hysteria2Fmt.ResolveRealm(uri!, out _);
+
+        await uri.Should().Contain("fm=");
+        await again.Should().NotBeNull();
+        await JsonNode.DeepEquals(JsonNode.Parse(again!.Finalmask), JsonNode.Parse(finalmask)).Should().BeTrue();
+    }
+
+    [Test]
     public async Task ToServerUrl_ShouldIncludeSchemeForSingbox()
     {
         var realm = new HyRealm(

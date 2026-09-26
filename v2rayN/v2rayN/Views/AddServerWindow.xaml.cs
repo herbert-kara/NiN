@@ -179,6 +179,7 @@ public partial class AddServerWindow
             this.Bind(ViewModel, vm => vm.Cert, v => v.txtCert.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.Cert, v => v.txtCert.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.SelectedSource.EchConfigList, v => v.txtEchConfigList.Text).DisposeWith(disposables);
+            this.Bind(ViewModel, vm => vm.SelectedSource.EchOutbound, v => v.txtEchOutbound.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.SelectedSource.VerifyPeerCertByName, v => v.txtVerifyPeerCertByName.Text).DisposeWith(disposables);
 
             //reality
@@ -255,6 +256,8 @@ public partial class AddServerWindow
                 cmbCoreType.IsEnabled = false;
                 cmbFingerprint.IsEnabled = false;
                 gridFinalmask.Visibility = Visibility.Collapsed;
+                tbEchOutbound.Visibility = Visibility.Collapsed;
+                btnEchOutbound.Visibility = Visibility.Collapsed;
 
                 cmbCongestionControl8.ItemsSource = Global.TuicCongestionControls;
                 break;
@@ -275,6 +278,8 @@ public partial class AddServerWindow
                 cmbCoreType.IsEnabled = false;
                 lstStreamSecurity.Add(Global.StreamSecurityReality);
                 gridFinalmask.Visibility = Visibility.Collapsed;
+                tbEchOutbound.Visibility = Visibility.Collapsed;
+                btnEchOutbound.Visibility = Visibility.Collapsed;
                 break;
 
             case EConfigType.Naive:
@@ -283,6 +288,8 @@ public partial class AddServerWindow
                 gridTransport.Visibility = Visibility.Collapsed;
                 cmbCoreType.IsEnabled = false;
                 gridFinalmask.Visibility = Visibility.Collapsed;
+                tbEchOutbound.Visibility = Visibility.Collapsed;
+                btnEchOutbound.Visibility = Visibility.Collapsed;
                 cmbFingerprint.IsEnabled = false;
                 cmbAlpn.IsEnabled = false;
                 txtCipherSuites.IsEnabled = false;

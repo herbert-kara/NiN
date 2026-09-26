@@ -31,4 +31,10 @@ public record CoreConfigContext
 
     // Generation Context
     public Dictionary<object, string> CustomOutboundMap { get; init; } = new();
+
+    // PattN: the ECH outbounds of the profiles in this config, appended after every other outbound
+    public List<EchOutboundItem> EchOutbounds { get; init; } = [];
 }
+
+// PattN: an ECH outbound as a profile wrote it, and the tag it has in the generated config
+public record EchOutboundItem(JsonObject Outbound, string Tag);

@@ -1791,4 +1791,16 @@ The "Get Certificate" action may fail if a self-signed certificate is used or if
   <data name="menuNewUpdate" xml:space="preserve">
     <value>New Update</value>
   </data>
+  <data name="TbEchOutbound" xml:space="preserve">
+    <value>EchOutbound</value>
+  </data>
+  <data name="MsgEchOutboundNeedsEchConfigList" xml:space="preserve">
+    <value>Az EchOutbound használatához EchConfigList szükséges</value>
+  </data>
+  <data name="MsgEchOutboundInvalidTag" xml:space="preserve">
+    <value>Az EchOutbound "tag" értéke nem lehet üres, direct vagy block, és nem kezdődhet proxy-val</value>
+  </data>
+  <data name="MsgEchOutboundTagConflict" xml:space="preserve">
+    <value>Az EchOutbound "{0}" tag értékét már egy másik outbound használja</value>
+  </data>
 </root>

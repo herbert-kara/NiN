@@ -1815,4 +1815,16 @@ Tindakan "Ambil sertifikat" mungkin gagal jika sertifikat self-signed digunakan 
   <data name="TbEnableFinalFragmentTip" xml:space="preserve">
     <value>Memecah bagian akhir paket menjadi fragmen yang lebih kecil. Hal ini dapat memengaruhi throughput dan latensi.</value>
   </data>
+  <data name="TbEchOutbound" xml:space="preserve">
+    <value>EchOutbound</value>
+  </data>
+  <data name="MsgEchOutboundNeedsEchConfigList" xml:space="preserve">
+    <value>EchOutbound memerlukan EchConfigList</value>
+  </data>
+  <data name="MsgEchOutboundInvalidTag" xml:space="preserve">
+    <value>EchOutbound harus memiliki "tag" yang tidak kosong, bukan direct atau block, dan tidak diawali proxy</value>
+  </data>
+  <data name="MsgEchOutboundTagConflict" xml:space="preserve">
+    <value>Tag "{0}" pada EchOutbound sudah digunakan oleh outbound lain</value>
+  </data>
 </root>

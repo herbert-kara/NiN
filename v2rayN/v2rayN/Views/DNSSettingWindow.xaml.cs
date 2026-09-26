@@ -16,7 +16,6 @@ public partial class DNSSettingWindow
         cmbDirectDNS.ItemsSource = Global.DomainDirectDNSAddress;
         cmbRemoteDNS.ItemsSource = Global.DomainRemoteDNSAddress;
         cmbBootstrapDNS.ItemsSource = Global.DomainPureIPDNSAddress;
-        cmbFakeIPRange.ItemsSource = Global.FakeIPRanges;
         cmbDirectExpectedIPs.ItemsSource = Global.ExpectedIPs;
 
         cmbdomainStrategy4FreedomCompatible.ItemsSource = Global.DomainStrategy;
@@ -29,7 +28,6 @@ public partial class DNSSettingWindow
             this.Bind(ViewModel, vm => vm.UseSystemHosts, v => v.togUseSystemHosts.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.AddCommonHosts, v => v.togAddCommonHosts.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.FakeIP, v => v.togFakeIP.IsChecked).DisposeWith(disposables);
-            this.Bind(ViewModel, vm => vm.FakeIPRange, v => v.cmbFakeIPRange.Text).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.BlockBindingQuery, v => v.togBlockBindingQuery.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.BlockAAAAQuery, v => v.togBlockAAAAQuery.IsChecked).DisposeWith(disposables);
             this.Bind(ViewModel, vm => vm.DirectDNS, v => v.cmbDirectDNS.Text).DisposeWith(disposables);

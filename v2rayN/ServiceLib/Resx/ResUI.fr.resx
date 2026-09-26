@@ -1788,4 +1788,16 @@ The "Get Certificate" action may fail if a self-signed certificate is used or if
   <data name="menuNewUpdate" xml:space="preserve">
     <value>Nouvelle MAJ</value>
   </data>
+  <data name="TbEchOutbound" xml:space="preserve">
+    <value>EchOutbound</value>
+  </data>
+  <data name="MsgEchOutboundNeedsEchConfigList" xml:space="preserve">
+    <value>EchOutbound nécessite EchConfigList</value>
+  </data>
+  <data name="MsgEchOutboundInvalidTag" xml:space="preserve">
+    <value>EchOutbound doit avoir un "tag" non vide, différent de direct et block, et qui ne commence pas par proxy</value>
+  </data>
+  <data name="MsgEchOutboundTagConflict" xml:space="preserve">
+    <value>Le tag "{0}" de EchOutbound est déjà utilisé par un autre outbound</value>
+  </data>
 </root>

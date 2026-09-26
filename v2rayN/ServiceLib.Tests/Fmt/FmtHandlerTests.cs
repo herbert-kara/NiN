@@ -273,6 +273,73 @@ public class FmtHandlerTests
     }
 
     [Test]
+    public async Task GetShareUriAndResolveConfig_Vless_ShouldRoundTripEchOutbound()
+    {
+        // PattN: echOutbound travels next to ech as one-line JSON and is stored indented again, like fm.
+        var source = CreateVlessProfile();
+        source.StreamSecurity = Global.StreamSecurity;
+        source.Sni = "vless.example";
+        source.EchConfigList = "cloudflare-ech.com+https://1.1.1.1/dns-query";
+        source.EchOutbound = """
+            {
+              "tag": "ech-out",
+              "protocol": "freedom",
+              "settings": { "domainStrategy": "UseIPv4" }
+            }
+            """;
+
+        var resolved = await ExportThenImport(source);
+
+        await JsonNode.DeepEquals(JsonNode.Parse(resolved.EchOutbound), JsonNode.Parse(source.EchOutbound)).Should().BeTrue();
+        await resolved.EchOutbound.Should().Contain("\n");
+        await AssertExportContains(source, "echOutbound=");
+        await FmtHandler.GetShareUri(source)!.Contains("%0A", StringComparison.OrdinalIgnoreCase).Should().BeFalse();
+    }
+
+    [Test]
+    public async Task GetShareUriAndResolveConfig_Hysteria2_ShouldRoundTripEchOutbound()
+    {
+        // Hysteria2 exports ech through its own query, which has to carry echOutbound as well.
+        var source = CreateHysteria2Profile();
+        source.EchOutbound = """{"tag": "ech-out", "protocol": "freedom"}""";
+
+        var resolved = await ExportThenImport(source);
+
+        await JsonNode.DeepEquals(JsonNode.Parse(resolved.EchOutbound), JsonNode.Parse(source.EchOutbound)).Should().BeTrue();
+        await AssertExportContains(source, "echOutbound=");
+    }
+
+    [Test]
+    public async Task GetShareUriAndResolveConfig_Hysteria2_ShouldRoundTripFinalmask()
+    {
+        // PattN: Hysteria2 links carry fm like the other links; it replaces the finalmask generated for Hysteria2.
+        var source = CreateHysteria2Profile();
+        source.Finalmask = """
+            {
+              "udp": [ { "type": "salamander", "settings": { "password": "fm-pass" } } ]
+            }
+            """;
+
+        var resolved = await ExportThenImport(source);
+
+        await JsonNode.DeepEquals(JsonNode.Parse(resolved.Finalmask), JsonNode.Parse(source.Finalmask)).Should().BeTrue();
+        await AssertExportContains(source, "fm=");
+        await FmtHandler.GetShareUri(source)!.Contains("%0A", StringComparison.OrdinalIgnoreCase).Should().BeFalse();
+        await FmtHandler.GetShareUri(CreateHysteria2Profile())!.Contains("fm=", StringComparison.Ordinal).Should().BeFalse();
+    }
+
+    [Test]
+    public async Task GetShareUriAndResolveConfig_WithoutEchOutbound_ShouldLeaveItEmpty()
+    {
+        var source = CreateVlessProfile();
+
+        var resolved = await ExportThenImport(source);
+
+        await resolved.EchOutbound.Should().BeEqualTo(string.Empty);
+        await FmtHandler.GetShareUri(source)!.Contains("echOutbound", StringComparison.Ordinal).Should().BeFalse();
+    }
+
+    [Test]
     public async Task GetShareUriAndResolveConfig_Wireguard_ShouldRoundTripKeysAndInterface()
     {
         var source = CreateWireguardProfile();

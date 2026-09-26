@@ -122,15 +122,19 @@ public partial class CoreConfigSingboxService
         // fake ip
         if (simpleDnsItem.FakeIP == true)
         {
-            var fakeipRange = simpleDnsItem.FakeIPRange.IsNullOrEmpty()
-                ? Global.FakeIPRanges.First()
-                : simpleDnsItem.FakeIPRange;
             var fakeip = new Server4Sbox
             {
                 tag = Global.SingboxFakeDNSTag,
                 type = "fakeip",
-                inet4_range = fakeipRange,
+                inet4_range = Global.SingboxFakeIPv4Range,
             };
+            // PattN: no IPv6 range when AAAA queries are blocked, like Xray-core's pools under UseIPv4, or when
+            // the tun has no IPv6 address, as sing-box then routes no IPv6 into it and fake IPv6 would be unreachable
+            if (simpleDnsItem.BlockAAAAQuery != true
+                && (!context.IsTunEnabled || _config.TunModeItem.EnableIPv6Address))
+            {
+                fakeip.inet6_range = Global.SingboxFakeIPv6Range;
+            }
             _coreConfig.dns.servers.Add(fakeip);
         }
     }
@@ -365,9 +369,16 @@ public partial class CoreConfigSingboxService
                         rule4ExpectedIPs = JsonUtils.DeepCopy(rule);
                         rule4ExpectedIPs.geosite = regionGeosite;
                     }
+                    if (rule.geosite?.Count > 0
+                        || rule.domain?.Count > 0
+                        || rule.domain_keyword?.Count > 0
+                        || rule.domain_regex?.Count > 0
+                        || rule.domain_suffix?.Count > 0)
+                    {
+                        AddRules(rule, item, directDnsList);
+                    }
                 }
-
-                if (rule.geosite?.Count > 0 || rule.domain?.Count > 0)
+                else
                 {
                     AddRules(rule, item, directDnsList);
                 }

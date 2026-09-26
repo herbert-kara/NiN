@@ -1923,4 +1923,16 @@
   <data name="TbSortingProcess" xml:space="preserve">
     <value>Процесс</value>
   </data>
+  <data name="TbEchOutbound" xml:space="preserve">
+    <value>EchOutbound</value>
+  </data>
+  <data name="MsgEchOutboundNeedsEchConfigList" xml:space="preserve">
+    <value>Для EchOutbound требуется EchConfigList</value>
+  </data>
+  <data name="MsgEchOutboundInvalidTag" xml:space="preserve">
+    <value>У EchOutbound должен быть непустой "tag", отличный от direct и block и не начинающийся с proxy</value>
+  </data>
+  <data name="MsgEchOutboundTagConflict" xml:space="preserve">
+    <value>Тег "{0}" в EchOutbound уже используется другим outbound</value>
+  </data>
 </root>

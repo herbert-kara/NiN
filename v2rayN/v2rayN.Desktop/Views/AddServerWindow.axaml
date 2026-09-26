@@ -1260,27 +1260,64 @@
                         HorizontalAlignment="Left" />
 
                     <TextBlock
+                        x:Name="tbEchOutbound"
                         Grid.Row="7"
                         Grid.Column="0"
                         Margin="{StaticResource Margin4}"
                         VerticalAlignment="Center"
-                        Text="{x:Static resx:ResUI.TbVerifyPeerCertByName}" />
-                    <TextBox
-                        x:Name="txtVerifyPeerCertByName"
+                        Text="{x:Static resx:ResUI.TbEchOutbound}" />
+                    <Button
+                        x:Name="btnEchOutbound"
                         Grid.Row="7"
                         Grid.Column="1"
-                        Width="400"
-                        Margin="{StaticResource Margin4}"
-                        HorizontalAlignment="Left" />
+                        Margin="{StaticResource MarginLr4}"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Center"
+                        Classes="IconButton">
+                        <Button.Content>
+                            <PathIcon Data="{StaticResource SemiIconMore}">
+                                <PathIcon.RenderTransform>
+                                    <RotateTransform Angle="90" />
+                                </PathIcon.RenderTransform>
+                            </PathIcon>
+                        </Button.Content>
+                        <Button.Flyout>
+                            <Flyout>
+                                <StackPanel>
+                                    <views:JsonEditor
+                                        x:Name="txtEchOutbound"
+                                        Width="400"
+                                        MinHeight="100"
+                                        Margin="{StaticResource Margin4}"
+                                        HorizontalAlignment="Stretch"
+                                        VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Flyout>
+                        </Button.Flyout>
+                    </Button>
 
                     <TextBlock
                         Grid.Row="8"
                         Grid.Column="0"
                         Margin="{StaticResource Margin4}"
                         VerticalAlignment="Center"
+                        Text="{x:Static resx:ResUI.TbVerifyPeerCertByName}" />
+                    <TextBox
+                        x:Name="txtVerifyPeerCertByName"
+                        Grid.Row="8"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}"
+                        HorizontalAlignment="Left" />
+
+                    <TextBlock
+                        Grid.Row="9"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
                         Text="{x:Static resx:ResUI.TbCertPinning}" />
                     <StackPanel
-                        Grid.Row="8"
+                        Grid.Row="9"
                         Grid.Column="1"
                         VerticalAlignment="Center"
                         Orientation="Horizontal">

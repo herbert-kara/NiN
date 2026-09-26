@@ -1924,4 +1924,16 @@
   <data name="TbSortingProcess" xml:space="preserve">
     <value>行程</value>
   </data>
+  <data name="TbEchOutbound" xml:space="preserve">
+    <value>EchOutbound</value>
+  </data>
+  <data name="MsgEchOutboundNeedsEchConfigList" xml:space="preserve">
+    <value>EchOutbound 需要填寫 EchConfigList</value>
+  </data>
+  <data name="MsgEchOutboundInvalidTag" xml:space="preserve">
+    <value>EchOutbound 必須包含非空的 "tag"，不能是 direct 或 block，且不能以 proxy 開頭</value>
+  </data>
+  <data name="MsgEchOutboundTagConflict" xml:space="preserve">
+    <value>EchOutbound 的 tag "{0}" 已被其他出站使用</value>
+  </data>
 </root>

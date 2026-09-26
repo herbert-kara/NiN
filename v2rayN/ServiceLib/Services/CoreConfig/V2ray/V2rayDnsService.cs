@@ -134,33 +134,6 @@ public partial class CoreConfigV2rayService
         }
     }
 
-    private void GenFakeDns()
-    {
-        var fakeipRange = _config.SimpleDNSItem.FakeIPRange.IsNullOrEmpty() ? Global.FakeIPRanges.First() : _config.SimpleDNSItem.FakeIPRange;
-        var poolSize = 65535L;
-        try
-        {
-            var fakeipNetwork = IPNetwork2.Parse(fakeipRange);
-            var totalIPs = fakeipNetwork.Total;
-            // see https://github.com/XTLS/Xray-core/blob/6e3322d219140a025285ded1114fe17a5edb74d8/app/dns/fakedns/fake.go#L88
-            // if math.Log2(float64(lruSize)) >= float64(rooms) { return errors.New("LRU size is bigger than subnet size").AtError() }
-            totalIPs -= 1;
-            if (totalIPs > 0)
-            {
-                poolSize = (totalIPs >= long.MaxValue) ? long.MaxValue : (long)totalIPs;
-            }
-        }
-        catch
-        {
-            // Ignore
-        }
-        _coreConfig.fakedns = new()
-        {
-            ipPool = fakeipRange,
-            poolSize = poolSize,
-        };
-    }
-
     private void FillDnsServers(Dns4Ray dnsItem)
     {
         var simpleDNSItem = context.SimpleDnsItem;
@@ -304,7 +277,7 @@ public partial class CoreConfigV2rayService
             }
             if (fakeIPMatchDomain.Count > 0)
             {
-                GenFakeDns();
+                // PattN: no "fakedns" block, so Xray-core applies its default fake IP pools
                 AddDnsServers(["fakedns"], fakeIPMatchDomain, skipFallback: false);
             }
         }
