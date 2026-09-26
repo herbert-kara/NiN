@@ -10,23 +10,34 @@ internal class MyDGCountryColumn : MyDGTextColumn
 {
     protected override FrameworkElement GenerateElement(DataGridCell cell, object dataItem)
     {
-        // Wrap so the two flag slots keep their 20px width no matter how long the
-        // remark text is; a horizontal StackPanel would push the second flag out
-        // of the cell instead of trimming the text.
-        var panel = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
-        var exit = new Image { Width = 20, Height = 14, Margin = new Thickness(0, 0, 6, 0), ToolTip = "Exit (measured)" };
+        // A Grid with fixed flag columns, not a StackPanel/WrapPanel: both of those
+        // let the remark text claim the whole cell width and squeeze the second
+        // flag out of view. Here the text goes in its own star column and the two
+        // flag slots keep their 20px no matter how long the text is.
+        var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); // exit flag
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(26) }); // server flag
+        grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) }); // text
+
+        var exit = new Image { Width = 20, Height = 14, ToolTip = "Exit (measured)" };
         exit.SetBinding(Image.SourceProperty, new Binding("ExitCountryCode") { Converter = new CountryFlagConverter() });
-        panel.Children.Add(exit);
-        var endpoint = new Image { Width = 20, Height = 14, Margin = new Thickness(0, 0, 6, 0), ToolTip = "Endpoint / CDN (IP estimate)" };
+        Grid.SetColumn(exit, 0);
+        grid.Children.Add(exit);
+
+        var endpoint = new Image { Width = 20, Height = 14, ToolTip = "Endpoint / CDN (IP estimate)" };
         endpoint.SetBinding(Image.SourceProperty, new Binding("EndpointCountryCode") { Converter = new CountryFlagConverter() });
-        panel.Children.Add(endpoint);
+        Grid.SetColumn(endpoint, 1);
+        grid.Children.Add(endpoint);
+
         var text = base.GenerateElement(cell, dataItem);
         if (text is TextBlock tb)
         {
             tb.TextTrimming = TextTrimming.CharacterEllipsis;
             tb.VerticalAlignment = VerticalAlignment.Center;
         }
-        panel.Children.Add(text);
-        return panel;
+        Grid.SetColumn(text, 2);
+        grid.Children.Add(text);
+
+        return grid;
     }
 }
