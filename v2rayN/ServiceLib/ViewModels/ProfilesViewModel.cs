@@ -431,8 +431,8 @@ public partial class ProfilesViewModel : MyReactiveObject
             catch (Exception ex) { Logging.SaveLog("Server reputation and country lookup", ex); }
             finally
             {
-                Logging.SaveLog("Server reputation and country lookup",
-                    $"checked={checkedCount} withoutResult={missingCount}");
+                Logging.SaveLog(
+                    $"Server reputation and country lookup: checked={checkedCount} withoutResult={missingCount}");
             }
         });
     }
