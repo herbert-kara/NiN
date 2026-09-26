@@ -1,4 +1,4 @@
-namespace ServiceLib.Enums;
+﻿namespace ServiceLib.Enums;
 
 public enum EServerColName
 {
@@ -13,6 +13,7 @@ public enum EServerColName
     DelayVal,
     SpeedVal,
     IpInfo,
+    FlagStatus,
 
     TodayDown,
     TodayUp,

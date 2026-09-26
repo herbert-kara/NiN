@@ -691,6 +691,20 @@ public partial class ProfilesViewModel : MyReactiveObject
             return;
         }
 
+        // The flagged verdict is derived at display time and never persisted, so it
+        // is sorted in memory only; ConfigHandler would have nothing to store.
+        if (colName == nameof(EServerColName.FlagStatus))
+        {
+            _dicHeaderSort.TryAdd(colName, true);
+            _dicHeaderSort.TryGetValue(colName, out var flagAsc);
+            var ordered = flagAsc
+                ? ProfileItems.OrderBy(t => (int)t.FlagStatus).ThenByDescending(t => t.FlagRisk).ThenBy(t => t.Remarks).ToList()
+                : ProfileItems.OrderByDescending(t => (int)t.FlagStatus).ThenBy(t => t.FlagRisk).ThenBy(t => t.Remarks).ToList();
+            ProfileItems.ReplaceRange(ordered);
+            _dicHeaderSort[colName] = !flagAsc;
+            return;
+        }
+
         _dicHeaderSort.TryAdd(colName, true);
         _dicHeaderSort.TryGetValue(colName, out var asc);
         if (await ConfigHandler.SortServers(_config, _config.SubIndexId, colName, asc) != 0)

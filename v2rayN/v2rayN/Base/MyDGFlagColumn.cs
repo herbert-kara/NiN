@@ -1,4 +1,4 @@
-using System.Windows;
+﻿using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using v2rayN.Converters;
@@ -11,11 +11,14 @@ internal class MyDGFlagColumn : MyDGTextColumn
 {
     protected override FrameworkElement GenerateElement(DataGridCell cell, object dataItem)
     {
+        // Only the coloured flag is drawn: the base text column would render the raw
+        // enum name, which is noise next to the flag itself.
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
-        var image = new Image { Width = 20, Height = 14, ToolTip = "Flagged check (anti-fraud)" };
+        var image = new Image { Width = 20, Height = 14 };
+        // Verdict, risk score and detection type for this config.
+        image.SetBinding(FrameworkElement.ToolTipProperty, new Binding("FlagStatusText"));
         image.SetBinding(Image.SourceProperty, new Binding("FlagStatus") { Converter = new FlagStatusConverter() });
         panel.Children.Add(image);
-        panel.Children.Add(base.GenerateElement(cell, dataItem));
         return panel;
     }
 }

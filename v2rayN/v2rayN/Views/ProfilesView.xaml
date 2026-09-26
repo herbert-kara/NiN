@@ -295,8 +295,7 @@
                         Width="60"
                         Binding="{Binding FlagStatus}"
                         ExName="FlagStatus"
-                        Header="{x:Static resx:ResUI.LvFlagged}"
-                        ToolTip="{x:Static resx:ResUI.TipFlagged}" />
+                        Header="{x:Static resx:ResUI.LvFlagged}" />
                     <base:MyDGTextColumn
                         Width="120"
                         Binding="{Binding Address}"
