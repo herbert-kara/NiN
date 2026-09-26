@@ -11,27 +11,14 @@ internal class MyDGFlagColumn : MyDGTextColumn
 {
     protected override FrameworkElement GenerateElement(DataGridCell cell, object dataItem)
     {
-        // Three small horizontal flags: exit-test country, server-country, verdict badge.
+        // Only the coloured flag is drawn: the base text column would render the raw
+        // enum name, which is noise next to the flag itself.
         var panel = new StackPanel { Orientation = Orientation.Horizontal };
-
-        // Exit test country flag
-        var exitFlag = new Image { Width = 20, Height = 14, Margin = new Thickness(0,0,6,0) };
-        exitFlag.SetBinding(Image.SourceProperty, new Binding("ExitCountryCode") { Converter = new CountryFlagConverter() });
-        exitFlag.ToolTip = "Exit (measured)";
-        panel.Children.Add(exitFlag);
-
-        // Server country flag (the second one that was missing)
-        var serverFlag = new Image { Width = 20, Height = 14, Margin = new Thickness(0,0,6,0) };
-        serverFlag.SetBinding(Image.SourceProperty, new Binding("ServerCountryCode") { Converter = new CountryFlagConverter() });
-        serverFlag.ToolTip = "Server location";
-        panel.Children.Add(serverFlag);
-
-        // Reputation verdict flag (green/red/grey badge)
-        var badge = new Image { Width = 20, Height = 14 };
-        badge.SetBinding(Image.SourceProperty, new Binding("FlagStatus") { Converter = new FlagStatusConverter() });
-        badge.SetBinding(FrameworkElement.ToolTipProperty, new Binding("FlagStatusText"));
-        panel.Children.Add(badge);
-
+        var image = new Image { Width = 20, Height = 14 };
+        // Verdict, risk score and detection type for this config.
+        image.SetBinding(FrameworkElement.ToolTipProperty, new Binding("FlagStatusText"));
+        image.SetBinding(Image.SourceProperty, new Binding("FlagStatus") { Converter = new FlagStatusConverter() });
+        panel.Children.Add(image);
         return panel;
     }
 }
