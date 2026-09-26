@@ -700,8 +700,9 @@ public class Global
     [
         @"https://api.ip.sb/geoip",
         @"https://api-ipv4.ip.sb/geoip",
-        @"https://api-ipv6.ip.sb/geoip",
         @"https://api.ipapi.is",
+        @"https://ipwho.is/",
+        @"https://api.ipgeolocation.io/ipgeo",
         @""
     ];
 

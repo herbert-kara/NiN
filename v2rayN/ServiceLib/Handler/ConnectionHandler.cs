@@ -107,17 +107,31 @@ public static class ConnectionHandler
 
     /// <summary>
     /// Gets IP and country information through specified proxy.
+    /// Tries the configured URL first, then the built-in fallbacks: a single
+    /// blocked endpoint used to leave the whole column "none" and the exit-country
+    /// flag blank even though the delay test had succeeded.
     /// </summary>
     public static async Task<IpInfoResult?> GetIPInfo(IWebProxy? webProxy, CancellationToken cancellationToken = default)
     {
+        var configured = AppManager.Instance.Config.SpeedTestItem.IPAPIUrl;
+        var candidates = new List<string>();
+        if (!configured.IsNullOrEmpty()) candidates.Add(configured);
+        foreach (var fallback in Global.IPAPIUrls)
+            if (!fallback.IsNullOrEmpty() && !candidates.Contains(fallback)) candidates.Add(fallback);
+
+        foreach (var url in candidates)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var result = await TryGetIpInfo(url, webProxy, cancellationToken);
+            if (result != null) return result;
+        }
+        return null;
+    }
+
+    private static async Task<IpInfoResult?> TryGetIpInfo(string url, IWebProxy? webProxy, CancellationToken cancellationToken)
+    {
         try
         {
-            var url = AppManager.Instance.Config.SpeedTestItem.IPAPIUrl;
-            if (url.IsNullOrEmpty())
-            {
-                return null;
-            }
-
             var downloadHandle = new DownloadService();
             var result = await downloadHandle.TryDownloadString(url, webProxy, "", cancellationToken);
             if (result == null)
@@ -132,7 +146,12 @@ public static class ConnectionHandler
             }
 
             var ip = ipInfo.ip ?? ipInfo.clientIp ?? ipInfo.ip_addr ?? ipInfo.query;
-            var country = ipInfo.country_code ?? ipInfo.country ?? ipInfo.countryCode ?? ipInfo.location?.country_code ?? "unknown";
+            var country = ipInfo.country_code ?? ipInfo.country ?? ipInfo.countryCode ?? ipInfo.location?.country_code;
+
+            // A 200 with no country is still a failure for our purpose: the exit
+            // flag would stay blank, so try the next endpoint instead.
+            if (country.IsNullOrEmpty() || country == "unknown") return null;
+            if (ip.IsNullOrEmpty()) ip = country;
 
             return new IpInfoResult(country, ip);
         }
