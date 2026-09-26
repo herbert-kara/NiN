@@ -34,12 +34,14 @@ TEXT_FILES = [
     'v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml',
     'v2rayN/v2rayN/v2rayN.csproj',
     'v2rayN/v2rayN.Desktop/v2rayN.Desktop.csproj',
+    '.github/workflows/nin-release.yml',
 ]
 NI_ICON = 'v2rayN/v2rayN.Desktop/Assets/NotifyIcon1.ico'
 WPF_XAML = 'v2rayN/v2rayN/Views/ProfilesView.xaml'
 WPF_NEEDLE = '<base:MyDGCountryColumn'
 AUTO_RESOLVER_CS = 'v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs'
 AUTO_RESOLVER_NEEDLE = 'ServerCountryService.Instance.ResolveAsync'
+WORKFLOW = '.github/workflows/nin-release.yml'
 
 
 def _copy(src: Path, dst: Path) -> None:
@@ -117,6 +119,21 @@ class NiNGuardFailClosedTest(unittest.TestCase):
         (self.root / WPF_XAML).unlink()
         with self.assertRaises(OSError):
             nin_guard.check()
+
+    def test_zip_of_folder_instead_of_contents_fails(self):
+        # Regression: archiving $PACKAGE itself nested every entry under
+        # NiN-windows-64/, so the in-app updater wrote a new tree beside the
+        # running build and the old UI kept launching.
+        wf = self.root / WORKFLOW
+        text = wf.read_text(encoding='utf-8-sig')
+        self.assertIn('Push-Location $env:PACKAGE', text)
+        wf.write_text(
+            text.replace('Push-Location $env:PACKAGE', 'Push-Location $env:GITHUB_WORKSPACE')
+                 .replace('is not at the zip root', 'was nested'),
+            encoding='utf-8-sig')
+        with self.assertRaises(RuntimeError) as ctx:
+            nin_guard.check()
+        self.assertIn('package CONTENTS', str(ctx.exception))
 
 
 if __name__ == '__main__':

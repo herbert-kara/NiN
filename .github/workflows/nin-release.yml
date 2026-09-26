@@ -107,9 +107,23 @@ jobs:
         shell: pwsh
         run: |
           Get-ChildItem $env:PACKAGE -Recurse -Filter *.pdb | Remove-Item
-          7z a -tzip "$env:PACKAGE.zip" $env:PACKAGE -mx5
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $hash = (Get-FileHash "$env:PACKAGE.zip" -Algorithm SHA256).Hash.ToLower()
+          # Archive the CONTENTS of $PACKAGE, not the folder itself. The in-app
+          # updater extracts into the install directory and expects NiN.exe and
+          # AmazTool.exe at its root; a leading NiN-windows-64/ entry nests them
+          # one level too deep, so the updater writes a new tree beside the running
+          # build and the old executable keeps launching without the new UI.
+          Push-Location $env:PACKAGE
+          try {
+            7z a -tzip (Join-Path $env:GITHUB_WORKSPACE "$env:PACKAGE.zip") . -mx5
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          } finally {
+            Pop-Location
+          }
+          $zip = Join-Path $env:GITHUB_WORKSPACE "$env:PACKAGE.zip"
+          $entries = & 7z l -ba -slt $zip | Select-String '^Path = ' | ForEach-Object { $_.Line.Substring(7) }
+          if (-not ($entries -contains 'NiN.exe')) { throw 'NiN.exe is not at the zip root' }
+          if (-not ($entries -contains 'AmazTool.exe')) { throw 'AmazTool.exe is not at the zip root' }
+          $hash = (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower()
           "$hash  $env:PACKAGE.zip" | Set-Content "$env:PACKAGE.zip.sha256" -Encoding ascii
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:

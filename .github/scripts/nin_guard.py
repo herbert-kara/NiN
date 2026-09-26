@@ -29,7 +29,24 @@ def check():
     for file, expected in json.loads((ROOT / '.github/nin-assets.json').read_text()).items():
         if hashlib.sha256((ROOT / file).read_bytes()).hexdigest() != expected:
             raise RuntimeError(f'NiN icon/flag changed: {file}')
+    check_release_package_layout()
     print('NiN identity, updater, flags, and automatic lookup guards passed')
+
+
+def check_release_package_layout():
+    """The in-app updater extracts the zip into the install directory.
+
+    A leading ``NiN-windows-64/`` entry puts NiN.exe one level too deep, so the
+    updater writes a new tree beside the running build and the old executable
+    keeps launching without the new UI. The workflow now archives the package
+    contents and asserts both exes sit at the zip root; guard that here so the
+    packaging cannot silently regress.
+    """
+    text = (ROOT / '.github/workflows/nin-release.yml').read_text(encoding='utf-8-sig')
+    if "Push-Location $env:PACKAGE" not in text:
+        raise RuntimeError('release zip must archive the package CONTENTS, not the folder')
+    if "is not at the zip root" not in text:
+        raise RuntimeError('release workflow must assert NiN.exe/AmazTool.exe are at the zip root')
 
 
 if __name__ == '__main__':
