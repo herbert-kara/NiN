@@ -45,7 +45,7 @@ class FakeRunner:
     """Stands in for nin_sync.run: records calls, fakes gh/git outcomes."""
 
     def __init__(self, upstream_tag=NEW_TAG, merge_fails=False, guard_fails=False,
-                 ancestor_fails=False, protected_changes=()):
+                 ancestor_fails=False, protected_changes=(), existing_releases=()):
         self.calls = []
         self.pushes = []
         self.tags = []
@@ -54,6 +54,7 @@ class FakeRunner:
         self.guard_fails = guard_fails
         self.ancestor_fails = ancestor_fails
         self.protected_changes = tuple(protected_changes)
+        self.existing_releases = tuple(existing_releases)
 
     def __call__(self, *args):
         args = tuple(str(a) for a in args)
@@ -61,6 +62,9 @@ class FakeRunner:
         joined = " ".join(args)
         if "releases/latest" in joined:
             return json.dumps({"tag_name": self.upstream_tag})
+        if "releases?per_page" in joined:
+            # Paginated --slurp shape: a list of pages, each a list of releases.
+            return json.dumps([[{"tag_name": t} for t in self.existing_releases]])
         if "rev-parse" in args:
             return NEW_SHA if "FETCH_HEAD" in joined else OLD_SHA
         if args[:2] == ("git", "merge-base"):
@@ -170,25 +174,29 @@ class SyncTestCase(unittest.TestCase):
         self.assertEqual(nin_sync.validate_tag("0.0.1-P0"), "0.0.1-P0")
 
     # -- 3. candidate tag semantic numeric shape ------------------------------
-    def test_candidate_tag_semantic_numeric_shape(self):
-        tag = nin_sync.candidate_tag("7.25.1", NEW_SHA)
-        m = re.fullmatch(r"v7\.25\.1-nin\.(\d+)\.([0-9a-f]{8})", tag)
-        self.assertIsNotNone(m, tag)
-        ident = int(m.group(1))
-        # Numeric identifier: same-base PattN releases must sort newer than
-        # a plain "nin.3" prerelease (docstring contract).
-        self.assertGreater(ident, 3)
-        self.assertEqual(m.group(2), NEW_SHA[:8])
-        # Stable for a given sha/base: second call only differs by clock.
-        tag2 = nin_sync.candidate_tag("7.25.1", NEW_SHA)
-        self.assertEqual(tag2.split("-nin.")[0], tag.split("-nin.")[0])
-        self.assertTrue(tag2.endswith(NEW_SHA[:8]))
+    def test_candidate_tag_uses_plain_integer_revision(self):
+        # A timestamp used to be embedded here, so SemanticVersion read e.g.
+        # 1789904268 as the revision and ranked it above every real release —
+        # the in-app updater then kept reinstalling that stale tree and the flag
+        # columns and refresh button disappeared again. Revisions are counters now.
+        tag = nin_sync.candidate_tag("7.25.1", NEW_SHA, ["v7.25.1-nin.9", "v7.25.1-nin.10"])
+        self.assertEqual(tag, "v7.25.1-nin.11")
+        self.assertIsNone(re.fullmatch(r"v7\.25\.1-nin\.(\d+)\.([0-9a-f]{8})", tag))
+        # Legacy timestamp tags must not push the counter forward.
+        self.assertEqual(
+            nin_sync.candidate_tag("7.25.1", NEW_SHA, ["v7.25.1-nin.1789904268.ed090c08"]),
+            "v7.25.1-nin.1")
+        # Base version change restarts the counter.
+        self.assertEqual(
+            nin_sync.candidate_tag("7.26.0", NEW_SHA, ["v7.25.1-nin.10"]), "v7.26.0-nin.1")
+        # Deterministic for a given set of previous tags.
+        self.assertEqual(tag, nin_sync.candidate_tag("7.25.1", NEW_SHA, ["v7.25.1-nin.9", "v7.25.1-nin.10"]))
 
     def test_candidate_tag_rejects_non_semver_base(self):
         for bad in ("v7.25.1", "7.25", "7.25.1-P26", ""):
             with self.subTest(base=bad):
                 with self.assertRaises(ValueError):
-                    nin_sync.candidate_tag(bad, NEW_SHA)
+                    nin_sync.candidate_tag(bad, NEW_SHA, [])
 
     # -- 4. successful merge publishes exactly one tag -------------------------
     def test_successful_merge_writes_state_tags_pushes_and_outputs(self):
@@ -201,9 +209,10 @@ class SyncTestCase(unittest.TestCase):
         self.assertEqual(state["tag"], NEW_TAG)
         self.assertEqual(state["sha"], NEW_SHA)
         self.assertEqual(state["candidate"], release_tag)
-        # tag shape: base from Directory.Build.props + numeric id + sha prefix
-        self.assertRegex(release_tag, r"^v7\.25\.1-nin\.\d+\.[0-9a-f]{8}$")
-        self.assertTrue(release_tag.endswith(NEW_SHA[:8]))
+        # tag shape: base from Directory.Build.props + plain integer revision.
+        # No timestamp/sha suffix — that shape outranked every real release in
+        # SemanticVersion and made the updater reinstall a stale tree.
+        self.assertRegex(release_tag, r"^v7\.25\.1-nin\.\d{1,6}$")
         # pushed by exact ref, nothing else
         self.assertEqual(
             runner.pushes, [("git", "push", "origin", f"refs/tags/{release_tag}")])

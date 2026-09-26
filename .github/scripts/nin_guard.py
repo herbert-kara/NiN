@@ -10,6 +10,7 @@ def check():
     required = {
         'v2rayN/ServiceLib/Global.cs': ['AppName = "NiN"', '"herbert-kara/NiN"'],
         'v2rayN/ServiceLib/Services/UpdateService.cs': ['NiNRelease.SelectTag'],
+        'v2rayN/ServiceLib/Common/NiNRelease.cs': ['SelectTag', r'-nin\.(?<rev>\d{1,6})'],
         'v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs': ['ServerCountryService.Instance.ResolveAsync', 'ServerFlaggedService.Instance.ResolveAsync', 'LookupServerFlagsAsync'],
         'v2rayN/ServiceLib/Models/Dto/ProfileItemModel.cs': ['ServerCountryCode', 'CountryCode'],
         'v2rayN/v2rayN/Views/ProfilesView.xaml': ['<base:MyDGCountryColumn', 'btnRefreshServerFlags'],

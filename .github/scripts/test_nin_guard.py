@@ -24,6 +24,7 @@ ASSET_MANIFEST = '.github/nin-assets.json'
 TEXT_FILES = [
     'v2rayN/ServiceLib/Global.cs',
     'v2rayN/ServiceLib/Services/UpdateService.cs',
+    'v2rayN/ServiceLib/Common/NiNRelease.cs',
     'v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs',
     'v2rayN/ServiceLib/Models/Dto/ProfileItemModel.cs',
     'v2rayN/v2rayN/Views/ProfilesView.xaml',

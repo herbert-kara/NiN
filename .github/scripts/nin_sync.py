@@ -16,12 +16,31 @@ def validate_tag(tag):
     return tag
 
 
-def candidate_tag(base, upstream_sha):
+def candidate_tag(base, upstream_sha, previous):
+    """Next release tag, as a plain small-integer revision.
+
+    A timestamp used to be embedded here (v7.25.2-nin.1789904268.ed090c08).
+    SemanticVersion reads that as revision 1789904268, so it outranked every real
+    release forever and the in-app updater kept reinstalling it — dropping the
+    flag columns and the refresh button. Revisions are now plain counters and the
+    upstream sha is recorded in the commit message instead.
+    """
     if not re.fullmatch(r"\d+\.\d+\.\d+", base):
         raise ValueError("Unsupported base version")
-    # Numeric identifier keeps same-base PattN releases newer than nin.3.
-    import time
-    return f"v{base}-nin.{int(time.time())}.{upstream_sha[:8]}"
+    highest = 0
+    for tag in previous:
+        m = re.fullmatch(r"v" + re.escape(base) + r"-nin\.(\d{1,6})", tag or "")
+        if m:
+            highest = max(highest, int(m.group(1)))
+    if highest >= 999999:
+        raise ValueError("Revision exhausted; bump the base version instead")
+    return f"v{base}-nin.{highest + 1}"
+
+
+def released_tags():
+    releases = json.loads(run("gh", "api", "--paginate", "--slurp",
+                              "repos/herbert-kara/NiN/releases?per_page=100"))
+    return [r["tag_name"] for page in releases for r in page]
 
 
 def main():
@@ -35,7 +54,7 @@ def main():
     # Keep the candidate in committed state and resume it before newer upstreams.
     pending = state.get("candidate")
     if pending:
-        if not re.fullmatch(r"v\d+\.\d+\.\d+-nin\.\d+\.[0-9a-f]{8}", pending):
+        if not re.fullmatch(r"v\d+\.\d+\.\d+-nin\.\d{1,6}", pending):
             raise ValueError("Invalid stored candidate")
         releases = json.loads(run("gh", "api", "--paginate", "--slurp", "repos/herbert-kara/NiN/releases?per_page=100"))
         completed = any(r["tag_name"] == pending and not r["draft"] and not r["prerelease"]
@@ -63,10 +82,10 @@ def main():
             raise RuntimeError(f"Upstream modified protected automation: {path}")
     run("python3", ".github/scripts/nin_guard.py")
     base = re.search(r"<Version>([^<]+)</Version>", Path("v2rayN/Directory.Build.props").read_text())[1]
-    release_tag = candidate_tag(base, sha)
+    release_tag = candidate_tag(base, sha, released_tags())
     state_path.write_text(json.dumps({"tag": tag, "sha": sha, "candidate": release_tag}, indent=2) + "\n")
     run("git", "add", str(state_path))
-    run("git", "commit", "-m", f"Merge PattN {tag}, preserving NiN customizations")
+    run("git", "commit", "-m", f"Merge PattN {tag} ({sha[:8]}), preserving NiN customizations")
     run("git", "tag", release_tag)
     run("git", "push", "origin", f"refs/tags/{release_tag}")
     # GITHUB_TOKEN tag pushes do not trigger workflows: caller invokes workflow_call.
