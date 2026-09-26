@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 
@@ -58,10 +58,10 @@ public class ServerFlaggedServiceTests
         var service = CreateService(http: http);
         var verdict = await service.ResolveAsync("8.8.8.8");
         await verdict.Should().NotBeNull();
-        await verdict!.Status.Should().Be(EFlagStatus.Flagged);
-        await verdict.Risk.Should().Be(66);
-        await verdict.Type.Should().Be("VPN");
-        await verdict.CountryCode.Should().Be("US");
+        await verdict!.Status.Should().BeEqualTo(EFlagStatus.Flagged);
+        await verdict.Risk.Should().BeEqualTo(66);
+        await verdict.Type.Should().BeEqualTo("VPN");
+        await verdict.CountryCode.Should().BeEqualTo("US");
     }
 
     [Test]
@@ -70,8 +70,8 @@ public class ServerFlaggedServiceTests
         var http = new FakeHttp(("1.1.1.1", """{"status":"ok","1.1.1.1":{"risk":0,"proxy":"no","type":"Business","isocode":"AU"}}"""));
         var service = CreateService(http: http);
         var verdict = await service.ResolveAsync("1.1.1.1");
-        await verdict!.Status.Should().Be(EFlagStatus.Clean);
-        await verdict.Risk.Should().Be(0);
+        await verdict!.Status.Should().BeEqualTo(EFlagStatus.Clean);
+        await verdict.Risk.Should().BeEqualTo(0);
     }
 
     [Test]
@@ -81,7 +81,7 @@ public class ServerFlaggedServiceTests
         var http = new FakeHttp(("9.9.9.9", """{"status":"ok","9.9.9.9":{"risk":75,"proxy":"no","type":"Residential"}}"""));
         var service = CreateService(http: http);
         var verdict = await service.ResolveAsync("9.9.9.9");
-        await verdict!.Status.Should().Be(EFlagStatus.Flagged);
+        await verdict!.Status.Should().BeEqualTo(EFlagStatus.Flagged);
     }
 
     [Test]
@@ -89,7 +89,7 @@ public class ServerFlaggedServiceTests
     {
         var http = new FakeHttp(("4.4.4.4", """{"status":"ok","4.4.4.4":{"risk":10,"proxy":"no","type":"VPN"}}"""));
         var service = CreateService(http: http);
-        await (await service.ResolveAsync("4.4.4.4"))!.Status.Should().Be(EFlagStatus.Flagged);
+        await (await service.ResolveAsync("4.4.4.4"))!.Status.Should().BeEqualTo(EFlagStatus.Flagged);
     }
 
     [Test]
@@ -112,7 +112,7 @@ public class ServerFlaggedServiceTests
     {
         var http = new FakeHttp(("1.0.0.2", """{"status":"ok","1.0.0.2":{"risk":0,"proxy":"no","isocode":"UK"}}"""));
         var service = CreateService(http: http);
-        await (await service.ResolveAsync("1.0.0.2"))!.CountryCode.Should().Be("GB");
+        await (await service.ResolveAsync("1.0.0.2"))!.CountryCode.Should().BeEqualTo("GB");
     }
 
     [Test]
@@ -122,8 +122,8 @@ public class ServerFlaggedServiceTests
             ("1.2.3.4", """{"status":"ok","1.2.3.4":{"risk":-5,"proxy":"no"}}"""),
             ("1.2.3.5", """{"status":"ok","1.2.3.5":{"risk":250,"proxy":"no"}}"""));
         var service = CreateService(http: http);
-        await (await service.ResolveAsync("1.2.3.4"))!.Risk.Should().Be(0);
-        await (await service.ResolveAsync("1.2.3.5"))!.Risk.Should().Be(100);
+        await (await service.ResolveAsync("1.2.3.4"))!.Risk.Should().BeEqualTo(0);
+        await (await service.ResolveAsync("1.2.3.5"))!.Risk.Should().BeEqualTo(100);
     }
 
     // ---- hostnames ---------------------------------------------------------
@@ -135,7 +135,7 @@ public class ServerFlaggedServiceTests
         var http = new FakeHttp(("8.8.8.8", """{"status":"ok","8.8.8.8":{"risk":0,"proxy":"no"}}"""));
         var service = CreateService(http: http, dns: dns);
         var verdict = await service.ResolveAsync("example.com");
-        await verdict!.Status.Should().Be(EFlagStatus.Clean);
+        await verdict!.Status.Should().BeEqualTo(EFlagStatus.Clean);
         await http.LastPath.Should().Contain("/8.8.8.8");
     }
 
@@ -156,8 +156,8 @@ public class ServerFlaggedServiceTests
     {
         var http = new FakeHttp(("8.8.8.8", """{"status":"ok","8.8.8.8":{"risk":0,"proxy":"no"}}"""));
         var service = CreateService(http: http);
-        await (await service.ResolveAsync("8.8.8.8"))!.Status.Should().Be(EFlagStatus.Clean);
-        await (await service.ResolveAsync("8.8.8.8"))!.Status.Should().Be(EFlagStatus.Clean);
+        await (await service.ResolveAsync("8.8.8.8"))!.Status.Should().BeEqualTo(EFlagStatus.Clean);
+        await (await service.ResolveAsync("8.8.8.8"))!.Status.Should().BeEqualTo(EFlagStatus.Clean);
         await http.CallCount.Should().BeEqualTo(1);
     }
 
@@ -177,7 +177,7 @@ public class ServerFlaggedServiceTests
         var http = new FakeHttp(("4.4.4.4", """{"status":"ok","4.4.4.4":{"risk":0,"proxy":"no"}}"""));
         var service = CreateService(http: http);
         var results = await Task.WhenAll(Enumerable.Range(0, 6).Select(_ => service.ResolveAsync("4.4.4.4")));
-        foreach (var result in results) await result!.Status.Should().Be(EFlagStatus.Clean);
+        foreach (var result in results) await result!.Status.Should().BeEqualTo(EFlagStatus.Clean);
         await http.CallCount.Should().BeEqualTo(1);
     }
 
@@ -244,15 +244,15 @@ public class ServerFlaggedServiceTests
             stream.CopyTo(ms);
             return Convert.ToBase64String(ms.ToArray());
         }).ToList();
-        await blobs.Distinct().Count().Should().Be(3);
+        await blobs.Distinct().Count().Should().BeEqualTo(3);
     }
 
     [Test]
     public void FlagCode_UnknownIsTheDefault()
     {
-        await ProfileCountry.FlagCode(EFlagStatus.Unknown).Should().Be("nin_flag_unknown");
-        await ProfileCountry.FlagCode(EFlagStatus.Clean).Should().Be("nin_flag_clean");
-        await ProfileCountry.FlagCode(EFlagStatus.Flagged).Should().Be("nin_flag_flagged");
+        await ProfileCountry.FlagCode(EFlagStatus.Unknown).Should().BeEqualTo("nin_flag_unknown");
+        await ProfileCountry.FlagCode(EFlagStatus.Clean).Should().BeEqualTo("nin_flag_clean");
+        await ProfileCountry.FlagCode(EFlagStatus.Flagged).Should().BeEqualTo("nin_flag_flagged");
     }
 
     // ---- model plumbing ----------------------------------------------------
@@ -261,13 +261,13 @@ public class ServerFlaggedServiceTests
     public async Task ProfileItemModel_DefaultsToUnknownAndTracksCode()
     {
         var item = new ProfileItemModel { Remarks = "x" };
-        await item.FlagStatus.Should().Be(EFlagStatus.Unknown);
-        await item.FlagStatusCode.Should().Be("nin_flag_unknown");
+        await item.FlagStatus.Should().BeEqualTo(EFlagStatus.Unknown);
+        await item.FlagStatusCode.Should().BeEqualTo("nin_flag_unknown");
         item.FlagStatus = EFlagStatus.Flagged;
-        await item.FlagStatusCode.Should().Be("nin_flag_flagged");
+        await item.FlagStatusCode.Should().BeEqualTo("nin_flag_flagged");
         await item.FlagStatusText.Should().Contain("FLAGGED");
         item.FlagStatus = EFlagStatus.Clean;
-        await item.FlagStatusCode.Should().Be("nin_flag_clean");
+        await item.FlagStatusCode.Should().BeEqualTo("nin_flag_clean");
         await item.FlagStatusText.Should().Contain("Clean");
     }
 
