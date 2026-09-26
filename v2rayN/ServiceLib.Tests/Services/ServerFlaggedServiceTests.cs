@@ -172,6 +172,51 @@ public class ServerFlaggedServiceTests
     }
 
     [Test]
+    public async Task ResolveAsync_ForceRefreshBypassesCachedSuccess()
+    {
+        var http = new FakeHttp(
+            ("8.8.8.8", """{"status":"ok","8.8.8.8":{"risk":0,"proxy":"no"}}"""),
+            ("8.8.8.8", """{"status":"ok","8.8.8.8":{"risk":90,"proxy":"yes"}}"""));
+        var service = CreateService(http: http);
+        await (await service.ResolveAsync("8.8.8.8"))!.Status.Should().BeEqualTo(EFlagStatus.Clean);
+
+        // The manual refresh must re-query, so the second call sees the new verdict.
+        var refreshed = await service.ResolveAsync("8.8.8.8", default, true);
+        await refreshed!.Status.Should().BeEqualTo(EFlagStatus.Flagged);
+        await refreshed.Risk.Should().BeEqualTo(90);
+        await http.CallCount.Should().BeEqualTo(2);
+    }
+
+    [Test]
+    public async Task ResolveAsync_ForceRefreshBypassesCachedFailure()
+    {
+        // First call fails (no response configured) and caches the null; the
+        // refresh must retry instead of replaying that failure for its whole TTL.
+        var http = new FakeHttp { ThrowOnCall = true };
+        var service = CreateService(http: http);
+        await (await service.ResolveAsync("3.3.3.3")).Should().BeNull();
+
+        http.ThrowOnCall = false;
+        http.Enqueue("""{"status":"ok","3.3.3.3":{"risk":80,"proxy":"yes"}}""");
+        var refreshed = await service.ResolveAsync("3.3.3.3", default, true);
+        await refreshed!.Status.Should().BeEqualTo(EFlagStatus.Flagged);
+        await http.CallCount.Should().BeEqualTo(2);
+    }
+
+    [Test]
+    public async Task ClearCache_ForcesTheNextLookupToHitTheProvider()
+    {
+        var http = new FakeHttp(
+            ("8.8.4.4", """{"status":"ok","8.8.4.4":{"risk":0,"proxy":"no"}}"""),
+            ("8.8.4.4", """{"status":"ok","8.8.4.4":{"risk":95,"proxy":"yes"}}"""));
+        var service = CreateService(http: http);
+        await (await service.ResolveAsync("8.8.4.4"))!.Risk.Should().BeEqualTo(0);
+        service.ClearCache("8.8.4.4");
+        await (await service.ResolveAsync("8.8.4.4"))!.Risk.Should().BeEqualTo(95);
+        await http.CallCount.Should().BeEqualTo(2);
+    }
+
+    [Test]
     public async Task ResolveAsync_ConcurrentDuplicateRequests_DedupeToSingleHttpCall()
     {
         var http = new FakeHttp(("4.4.4.4", """{"status":"ok","4.4.4.4":{"risk":0,"proxy":"no"}}"""));
@@ -304,6 +349,9 @@ public class ServerFlaggedServiceTests
         public int CallCount { get; private set; }
         public string? LastPath => _paths.Count > 0 ? _paths[^1] : null;
         public bool ThrowOnCall { get; set; }
+
+        /// <summary>Queues one more response, for tests that change the fake mid-run.</summary>
+        public void Enqueue(string body) => _bodies.Enqueue(body);
 
         public async Task<string> SendAsync(string url, CancellationToken cancellationToken)
         {

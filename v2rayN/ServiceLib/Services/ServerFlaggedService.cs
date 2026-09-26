@@ -61,7 +61,7 @@ public sealed class ServerFlaggedService
         _resolveDns = resolveDns ?? DefaultResolveDnsAsync;
     }
 
-    public async Task<FlagVerdict?> ResolveAsync(string? address, CancellationToken cancellationToken = default)
+    public async Task<FlagVerdict?> ResolveAsync(string? address, CancellationToken cancellationToken = default, bool forceRefresh = false)
     {
         if (string.IsNullOrWhiteSpace(address) || cancellationToken.IsCancellationRequested)
         {
@@ -82,6 +82,9 @@ public sealed class ServerFlaggedService
         }
 
         var cacheKey = ip?.ToString() ?? address;
+        // A manual refresh must actually re-query the provider, not replay a
+        // verdict that is up to a day old, so the cache entry is dropped first.
+        if (forceRefresh) ClearCache(cacheKey);
         var cached = GetCache(cacheKey);
         if (cached != null)
         {
@@ -179,6 +182,16 @@ public sealed class ServerFlaggedService
             }
         }
         return null;
+    }
+
+    /// <summary>Drops a cached verdict so the next lookup hits the provider again.</summary>
+    public void ClearCache(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return;
+        lock (_gate)
+        {
+            _cache.TryRemove(key, out _);
+        }
     }
 
     private void PutCache(string key, FlagVerdict? verdict)

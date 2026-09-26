@@ -29,6 +29,7 @@ TEXT_FILES = [
     'v2rayN/v2rayN/Views/ProfilesView.xaml',
     'v2rayN/v2rayN/Base/MyDGCountryColumn.cs',
     'v2rayN/ServiceLib/Services/ServerFlaggedService.cs',
+    'v2rayN/ServiceLib/Services/ServerCountryService.cs',
     'v2rayN/v2rayN/Base/MyDGFlagColumn.cs',
     'v2rayN/v2rayN.Desktop/Views/ProfilesView.axaml',
     'v2rayN/v2rayN/v2rayN.csproj',

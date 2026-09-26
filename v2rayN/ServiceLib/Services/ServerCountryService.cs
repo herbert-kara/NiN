@@ -38,7 +38,7 @@ public sealed class ServerCountryService
         _resolveDns = resolveDns ?? DefaultResolveDnsAsync;
     }
 
-    public async Task<string?> ResolveAsync(string? address, CancellationToken cancellationToken = default)
+    public async Task<string?> ResolveAsync(string? address, CancellationToken cancellationToken = default, bool forceRefresh = false)
     {
         if (string.IsNullOrWhiteSpace(address) || cancellationToken.IsCancellationRequested)
         {
@@ -59,6 +59,8 @@ public sealed class ServerCountryService
         }
 
         var cacheKey = ip?.ToString() ?? address;
+        // Match the reputation service: a manual refresh must re-query, not replay.
+        if (forceRefresh) ClearCache(cacheKey);
         var cached = GetCache(cacheKey);
         if (cached != null)
         {
@@ -156,6 +158,16 @@ public sealed class ServerCountryService
             }
         }
         return null;
+    }
+
+    /// <summary>Drops a cached country so the next lookup hits the provider again.</summary>
+    public void ClearCache(string key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return;
+        lock (_gate)
+        {
+            _cache.TryRemove(key, out _);
+        }
     }
 
     private void PutCache(string key, string? code)

@@ -181,7 +181,8 @@ public partial class ProfilesViewModel : MyReactiveObject
         });
         RefreshServerFlagsCmd = ReactiveCommand.CreateFromTask(async () =>
         {
-            await LookupServerFlagsAsync(ProfileItems.ToList());
+            // true: bypass both caches so the button really re-queries the provider.
+            await LookupServerFlagsAsync(ProfileItems.ToList(), true);
         });
         TcpingServerCmd = ReactiveCommand.CreateFromTask(async () =>
         {
@@ -389,7 +390,7 @@ public partial class ProfilesViewModel : MyReactiveObject
     /// result to guiLogs. Shared by the automatic pass after a refresh and by the
     /// manual "refresh flags" button, so both take the same code path.
     /// </summary>
-    private async Task LookupServerFlagsAsync(List<ProfileItemModel> snapshot)
+    private async Task LookupServerFlagsAsync(List<ProfileItemModel> snapshot, bool forceRefresh = false)
     {
 
         // One reputation lookup per config yields both facts we display: the
@@ -413,12 +414,12 @@ public partial class ProfilesViewModel : MyReactiveObject
                     if (item.ConfigType.IsComplexType() || item.ConfigType == EConfigType.Custom) continue;
                     checkedCount++;
                     var indexId = item.IndexId;
-                    var verdict = await ServerFlaggedService.Instance.ResolveAsync(item.Address);
+                    var verdict = await ServerFlaggedService.Instance.ResolveAsync(item.Address, default, forceRefresh);
                     var country = verdict?.CountryCode;
                     if (country == null)
                     {
                         // Fallback only: the reputation response had no country.
-                        country = await ServerCountryService.Instance.ResolveAsync(item.Address);
+                        country = await ServerCountryService.Instance.ResolveAsync(item.Address, default, forceRefresh);
                     }
                     if (verdict == null && country == null)
                     {
