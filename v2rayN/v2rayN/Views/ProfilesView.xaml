@@ -90,6 +90,15 @@
                     <materialDesign:PackIcon VerticalAlignment="Center" Kind="LightningBolt" />
                 </Button>
                 <Button
+                    x:Name="btnRefreshServerFlags"
+                    Width="30"
+                    Height="30"
+                    Margin="{StaticResource MarginLeftRight4}"
+                    Style="{StaticResource MaterialDesignFloatingActionMiniLightButton}"
+                    ToolTip="Refresh all flags (reputation + exit/server country)">
+                    <materialDesign:PackIcon VerticalAlignment="Center" Kind="Flag" />
+                </Button>
+                <Button
                     x:Name="menuMixedTestServer"
                     Width="30"
                     Height="30"

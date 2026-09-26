@@ -67,6 +67,7 @@ public partial class ProfilesViewModel : MyReactiveObject
 
     //servers ping
     public ReactiveCommand<RxVoid, RxVoid> MixedTestServerCmd { get; }
+    public ReactiveCommand<RxVoid, RxVoid> RefreshServerFlagsCmd { get; }
 
     public ReactiveCommand<RxVoid, RxVoid> TcpingServerCmd { get; }
     public ReactiveCommand<RxVoid, RxVoid> RealPingServerCmd { get; }
@@ -177,6 +178,10 @@ public partial class ProfilesViewModel : MyReactiveObject
         MixedTestServerCmd = ReactiveCommand.CreateFromTask(async () =>
         {
             await ServerSpeedtest(ESpeedActionType.Mixedtest);
+        });
+        RefreshServerFlagsCmd = ReactiveCommand.CreateFromTask(async () =>
+        {
+            await LookupServerFlagsAsync(ProfileItems.ToList());
         });
         TcpingServerCmd = ReactiveCommand.CreateFromTask(async () =>
         {
@@ -376,7 +381,16 @@ public partial class ProfilesViewModel : MyReactiveObject
         }
 
         await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
-        var snapshot = ProfileItems.ToList();
+        await LookupServerFlagsAsync(ProfileItems.ToList());
+    }
+
+    /// <summary>
+    /// Re-runs the reputation/country lookup for the given configs and reports the
+    /// result to guiLogs. Shared by the automatic pass after a refresh and by the
+    /// manual "refresh flags" button, so both take the same code path.
+    /// </summary>
+    private async Task LookupServerFlagsAsync(List<ProfileItemModel> snapshot)
+    {
 
         // One reputation lookup per config yields both facts we display: the
         // anti-fraud verdict and the country of the server's own public IP.
@@ -387,7 +401,7 @@ public partial class ProfilesViewModel : MyReactiveObject
         // Results are written to whichever instance is currently in ProfileItems,
         // never to the captured object: RefreshServers replaces the whole collection,
         // so a refresh landing mid-lookup used to throw the result away.
-        _ = Task.Run(async () =>
+        await Task.Run(async () =>
         {
             var checkedCount = 0;
             var missingCount = 0;
