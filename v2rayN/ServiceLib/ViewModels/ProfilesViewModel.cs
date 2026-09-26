@@ -1,4 +1,4 @@
-namespace ServiceLib.ViewModels;
+﻿namespace ServiceLib.ViewModels;
 
 public partial class ProfilesViewModel : MyReactiveObject
 {
@@ -20,6 +20,7 @@ public partial class ProfilesViewModel : MyReactiveObject
     private SpeedtestService? _speedtestService;
     private string? _pendingSelectIndexId;
     private int _countryRefresh;
+    private int _flaggedGeneration;
 
     #endregion private prop
 
@@ -386,8 +387,8 @@ public partial class ProfilesViewModel : MyReactiveObject
                 foreach (var item in snapshot)
                 {
                     if (generation != Volatile.Read(ref _countryRefresh)) break;
-                    if (item.ConfigType.IsComplexType() || item.ConfigType == EConfigType.Custom
-                        || ProfileCountry.Resolve(item.IpInfo, null) != null) continue;
+                    // Complex/custom configs have no single server address to check.
+                    if (item.ConfigType.IsComplexType() || item.ConfigType == EConfigType.Custom) continue;
                     var country = await ServerCountryService.Instance.ResolveAsync(item.Address);
                     if (generation != Volatile.Read(ref _countryRefresh)) break;
                     RxSchedulers.MainThreadScheduler.Schedule(() =>
@@ -398,6 +399,34 @@ public partial class ProfilesViewModel : MyReactiveObject
             }
             catch (OperationCanceledException) { }
             catch (Exception ex) { Logging.SaveLog("Server country lookup", ex); }
+        });
+
+        // Second pass: anti-fraud / IP-reputation verdict per config, shown as a
+        // coloured flag. Runs after the country pass so the shared rate-limit gate
+        // serialises both without doubling the burst.
+        var flagGeneration = Interlocked.Increment(ref _flaggedGeneration);
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                foreach (var item in snapshot)
+                {
+                    if (flagGeneration != Volatile.Read(ref _flaggedGeneration)) break;
+                    if (item.ConfigType.IsComplexType() || item.ConfigType == EConfigType.Custom) continue;
+                    var verdict = await ServerFlaggedService.Instance.ResolveAsync(item.Address);
+                    if (flagGeneration != Volatile.Read(ref _flaggedGeneration)) break;
+                    if (verdict == null) continue;
+                    RxSchedulers.MainThreadScheduler.Schedule(() =>
+                    {
+                        if (flagGeneration != Volatile.Read(ref _flaggedGeneration)) return;
+                        item.FlagStatus = verdict.Status;
+                        item.FlagRisk = verdict.Risk;
+                        item.FlagType = verdict.Type;
+                    });
+                }
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { Logging.SaveLog("Server flagged lookup", ex); }
         });
     }
 

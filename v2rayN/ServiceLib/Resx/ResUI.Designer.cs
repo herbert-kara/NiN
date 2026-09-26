@@ -574,6 +574,24 @@ namespace ServiceLib.Resx {
         }
         
         /// <summary>
+        ///   Looks up a localized string similar to Flagged.
+        /// </summary>
+        public static string LvFlagged {
+            get {
+                return ResourceManager.GetString("LvFlagged", resourceCulture);
+            }
+        }
+        
+        /// <summary>
+        ///   Looks up a localized string similar to Anti-fraud reputation check.
+        /// </summary>
+        public static string TipFlagged {
+            get {
+                return ResourceManager.GetString("TipFlagged", resourceCulture);
+            }
+        }
+        
+        /// <summary>
         ///   查找类似 HTTP headers (JSON) 的本地化字符串。
         /// </summary>
         public static string LvRequestHeaders {

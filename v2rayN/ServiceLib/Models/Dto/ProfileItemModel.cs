@@ -66,6 +66,45 @@ public partial class ProfileItemModel : ReactiveObject
     public string? ExitCountryCode => ProfileCountry.Resolve(IpInfo, null);
     public string? EndpointCountryCode => ProfileCountry.Normalize(ServerCountryCode);
 
+    // Anti-fraud / IP-reputation verdict for the config's public IP.
+    // Unknown is a real value (not yet checked, or the check could not run) and is
+    // rendered as a grey flag rather than being hidden.
+    private EFlagStatus _flagStatus = EFlagStatus.Unknown;
+    public EFlagStatus FlagStatus
+    {
+        get => _flagStatus;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _flagStatus, value);
+            this.RaisePropertyChanged(nameof(FlagStatusCode));
+        }
+    }
+
+    private int _flagRisk;
+    public int FlagRisk
+    {
+        get => _flagRisk;
+        set => this.RaiseAndSetIfChanged(ref _flagRisk, value);
+    }
+
+    private string? _flagType;
+    public string? FlagType
+    {
+        get => _flagType;
+        set => this.RaiseAndSetIfChanged(ref _flagType, value);
+    }
+
+    /// <summary>Resource key of the coloured flag that represents <see cref="FlagStatus"/>.</summary>
+    public string FlagStatusCode => ProfileCountry.FlagCode(FlagStatus)!;
+
+    /// <summary>Human-readable tooltip for the flagged column: verdict, risk score and detection type.</summary>
+    public string FlagStatusText => FlagStatus switch
+    {
+        EFlagStatus.Clean => $"Clean - not flagged as proxy/VPN/hosting (risk {FlagRisk}/100)",
+        EFlagStatus.Flagged => $"FLAGGED - {(FlagType ?? "proxy/VPN/hosting")} (risk {FlagRisk}/100)",
+        _ => "Unknown - not checked yet, or the check could not run",
+    };
+
     // Legacy hint fallback only; location flags bind to the independent properties above.
     public string? CountryCode => ExitCountryCode
         ?? EndpointCountryCode

@@ -79,4 +79,21 @@ public static class ProfileCountry
         code = Normalize(code);
         return code == null ? null : typeof(ProfileCountry).Assembly.GetManifestResourceStream($"ServiceLib.Resources.Flags.{code.ToLowerInvariant()}.png");
     }
+
+    // Reputation verdict flags. These are NiN's own artwork, not ISO country codes, so
+    // they bypass Normalize (which would reject the "nin_flag_*" names) and are opened
+    // by exact resource name.
+    public const string CleanFlagCode = "nin_flag_clean";
+    public const string FlaggedFlagCode = "nin_flag_flagged";
+    public const string UnknownFlagCode = "nin_flag_unknown";
+
+    public static string? FlagCode(EFlagStatus status) => status switch
+    {
+        EFlagStatus.Clean => CleanFlagCode,
+        EFlagStatus.Flagged => FlaggedFlagCode,
+        _ => UnknownFlagCode,
+    };
+
+    public static Stream? OpenStatusFlag(EFlagStatus status)
+        => typeof(ProfileCountry).Assembly.GetManifestResourceStream($"ServiceLib.Resources.Flags.{FlagCode(status)}.png");
 }

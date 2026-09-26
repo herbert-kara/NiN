@@ -19,6 +19,7 @@
         <BooleanToVisibilityConverter x:Key="BoolToVisConverter" />
         <conv:DelayColorConverter x:Key="DelayColorConverter" />
         <conv:CountryFlagConverter x:Key="CountryFlagConverter" />
+        <conv:FlagStatusConverter x:Key="FlagStatusConverter" />
     </UserControl.Resources>
     <Grid>
         <DockPanel>
@@ -290,6 +291,12 @@
                         Binding="{Binding Remarks}"
                         ExName="Remarks"
                         Header="{x:Static resx:ResUI.LvRemarks}" />
+                    <base:MyDGFlagColumn
+                        Width="60"
+                        Binding="{Binding FlagStatus}"
+                        ExName="FlagStatus"
+                        Header="{x:Static resx:ResUI.LvFlagged}"
+                        ToolTip="{x:Static resx:ResUI.TipFlagged}" />
                     <base:MyDGTextColumn
                         Width="120"
                         Binding="{Binding Address}"

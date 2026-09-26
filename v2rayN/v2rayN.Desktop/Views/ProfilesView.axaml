@@ -17,6 +17,7 @@
     <UserControl.Resources>
         <conv:DelayColorConverter x:Key="DelayColorConverter" />
         <conv:CountryFlagConverter x:Key="CountryFlagConverter" />
+        <conv:FlagStatusConverter x:Key="FlagStatusConverter" />
     </UserControl.Resources>
     <Grid>
         <DockPanel>
@@ -238,6 +239,22 @@
                                         VerticalAlignment="Center"
                                         Text="{Binding Remarks}" />
                                 </StackPanel>
+                            </DataTemplate>
+                        </DataGridTemplateColumn.CellTemplate>
+                    </DataGridTemplateColumn>
+
+                    <DataGridTemplateColumn SortMemberPath="FlagStatus" Tag="FlagStatus">
+                        <DataGridTemplateColumn.Header>
+                            <TextBlock Text="{x:Static resx:ResUI.LvFlagged}"
+                                       ToolTip.Tip="{x:Static resx:ResUI.TipFlagged}" />
+                        </DataGridTemplateColumn.Header>
+                        <DataGridTemplateColumn.CellTemplate>
+                            <DataTemplate>
+                                <Image Width="20" Height="14"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       Source="{Binding FlagStatus, Converter={StaticResource FlagStatusConverter}}"
+                                       ToolTip.Tip="{Binding FlagStatusText}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

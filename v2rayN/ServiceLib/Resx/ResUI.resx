@@ -309,6 +309,12 @@
   <data name="LvRemarks" xml:space="preserve">
     <value>Remarks</value>
   </data>
+  <data name="LvFlagged" xml:space="preserve">
+    <value>Flagged</value>
+  </data>
+  <data name="TipFlagged" xml:space="preserve">
+    <value>Anti-fraud reputation check (proxy / VPN / hosting) via proxycheck.io. Green = clean, red = flagged, grey = unknown.</value>
+  </data>
   <data name="LvUrl" xml:space="preserve">
     <value>URL (optional)</value>
   </data>
