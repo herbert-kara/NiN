@@ -2,6 +2,7 @@ using MaterialDesignColors;
 using MaterialDesignColors.ColorManipulation;
 using MaterialDesignThemes.Wpf;
 using Microsoft.Win32;
+using v2rayN.Common;
 
 namespace v2rayN.ViewModels;
 
@@ -36,7 +37,10 @@ public partial class ThemeSettingViewModel : MyReactiveObject
         ModifyFontSize();
         if (!_config.UiItem.ColorPrimaryName.IsNullOrEmpty())
         {
-            var swatch = new SwatchesProvider().Swatches.FirstOrDefault(t => t.Name == _config.UiItem.ColorPrimaryName);
+            // Must search NiN's own accents too, or a stored "NiN ..." colour would
+            // silently fall back to the Material default on the next launch.
+            var swatch = NiNSwatches.Build().Concat(new SwatchesProvider().Swatches)
+                .FirstOrDefault(t => t.Name == _config.UiItem.ColorPrimaryName);
             if (swatch?.ExemplarHue?.Color is not null)
             {
                 ChangePrimaryColor(swatch.ExemplarHue.Color);
@@ -46,6 +50,9 @@ public partial class ThemeSettingViewModel : MyReactiveObject
 
     private void BindingUI()
     {
+        // NiN's own accents first so they are the easy pick, then the stock Material
+        // palette for everything else.
+        Swatches.AddRange(NiNSwatches.Build());
         Swatches.AddRange(new SwatchesProvider().Swatches);
         if (!_config.UiItem.ColorPrimaryName.IsNullOrEmpty())
         {

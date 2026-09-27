@@ -26,6 +26,7 @@ WATCHED = [
     "v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs",
     "v2rayN/v2rayN/Base/MyDGCountryColumn.cs",
     "v2rayN/v2rayN/Base/MyDGFlagColumn.cs",
+    "v2rayN/v2rayN/Common/NiNSwatches.cs",
     "v2rayN/v2rayN/Converters/FlagStatusConverter.cs",
     "v2rayN/v2rayN/Views/ProfilesView.xaml.cs",
     "v2rayN/v2rayN.Desktop/Converters/FlagStatusConverter.cs",
