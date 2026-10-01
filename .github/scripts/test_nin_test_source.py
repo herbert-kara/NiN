@@ -29,6 +29,65 @@ def test_sources():
     return sorted(TESTS.rglob("*.cs"))
 
 
+ROOT = Path(__file__).resolve().parents[2]
+PROFILE_ITEM = ROOT / "v2rayN/ServiceLib/Models/Entities/ProfileItem.cs"
+_ITEM_SRC = PROFILE_ITEM.read_text(encoding="utf-8-sig")
+# Properties (a body brace follows the name) and methods (parentheses follow it).
+PROFILE_ITEM_PROPS = set(
+    re.findall(r"public\s+[\w\.<>\[\]\?,\s]+\s(\w+)\s*\{", _ITEM_SRC)
+) | set(re.findall(r"public\s+[\w\.<>\[\]\?,\s]+\s(\w+)\s*\(", _ITEM_SRC))
+# Members promoted from the embedded transport/protocol objects, used by tests.
+PROFILE_ITEM_PROPS |= {
+    "ConfigType", "Network", "Path", "Sni", "Port", "Id", "Password", "Address",
+    "Remarks", "IndexId", "ShortId", "PublicKey", "Fingerprint", "AllowInsecure",
+    "StreamSecurity", "HeaderType", "RequestHost", "ServiceName", "Mode",
+    "Security", "AlterId", "Flow", "Method", "PreSocksPort", "Subid", "IsSub",
+}
+
+
+class ProfileItemMemberTests(unittest.TestCase):
+    """A member that does not exist is CS1061, and CI is the only place to notice.
+
+    Scoped to the NiN-authored tests: upstream test files legitimately name
+    locals `item` for other types, so a bare `item.` scan would be all false
+    positives and would get switched off instead of fixed.
+    """
+
+    # Only the converter tests build ProfileItem instances. PingQualityTests works
+    # on the PingQuality struct, whose members are unrelated to ProfileItem.
+    NIN_TESTS = [
+        "v2rayN/ServiceLib.Tests/Handler/ProxyOutboundFmtTests.cs",
+    ]
+
+    def test_member_list_was_extracted(self):
+        self.assertIn("Address", PROFILE_ITEM_PROPS,
+                      "failed to read ProfileItem members; the guard would pass vacuously")
+        self.assertGreater(len(PROFILE_ITEM_PROPS), 20)
+
+    def test_nin_tests_only_use_real_profileitem_members(self):
+        linq = {"Should", "ToString", "Count", "Select", "Distinct", "Where", "ToList",
+                "Any", "All", "First", "Value", "Key", "OrderBy"}
+        for rel in self.NIN_TESTS:
+            path = ROOT / rel
+            self.assertTrue(path.exists(), f"{rel} is missing")
+            src = path.read_text(encoding="utf-8-sig")
+            # Members are read off the local collections these tests build.
+            pattern = re.compile(r"\b(?:item|profile|vless\[\d+\]|trojan\[\d+\]|steady)\.(\w+)")
+            for i, line in enumerate(src.splitlines(), 1):
+                if line.strip().startswith("//"):
+                    continue
+                for m in pattern.finditer(line):
+                    name = m.group(1)
+                    if name in linq:
+                        continue
+                    if name not in PROFILE_ITEM_PROPS:
+                        self.fail(
+                            f"{path.name}:{i} reads .{name} off a ProfileItem, which is "
+                            f"not declared; CS1061 in CI. Known members: "
+                            f"{sorted(PROFILE_ITEM_PROPS)}"
+                        )
+
+
 class TunitAssertionTests(unittest.TestCase):
     def test_files_exist(self):
         self.assertTrue(test_sources(), "no C# test sources found")

@@ -250,8 +250,14 @@ public class ProxyOutboundFmtTests
         // Remarks come from the owning config, so each group is labelled.
         await vless.Select(x => x.Remarks).Distinct().Count().Should().BeEqualTo(3);
 
-        // ws / grpc transport survives per node.
-        await vless.Select(x => x.StreamSettings).Distinct().Count().Should().BeEqualTo(3);
+        // ws / grpc transport survives per node, not just the first one.
+        await vless.Select(x => x.Network).Distinct().Count().Should().BeEqualTo(1);
+        await vless[0].Network.Should().BeEqualTo("ws");
+        await trojan.Select(x => x.Network).Distinct().Count().Should().BeEqualTo(1);
+        await trojan[0].Network.Should().BeEqualTo("grpc");
+
+        // Each node keeps its own ws path and host.
+        await vless.Select(x => x.Path).Distinct().Count().Should().BeEqualTo(3);
         await vless[0].Path.Should().BeEqualTo("/p1");
         await vless[1].Path.Should().BeEqualTo("/p2");
     }
