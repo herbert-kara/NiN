@@ -54,15 +54,45 @@ class TunitAssertionTests(unittest.TestCase):
                             f"assertions are {sorted(KNOWN_ASSERTIONS)}"
                         )
 
+    def test_every_assertion_is_awaited(self):
+        """TUnit errors with TUnitAssertions0002 if an assertion is not awaited.
+
+        The opposite of an earlier wrong guess: `await x.Should()` is required,
+        and `await list.Count.Should()` is fine (upstream writes it that way).
+        Assertions wrap across lines and may carry `.Because(...)`, so scan
+        statements rather than physical lines.
+        """
+        for path in test_sources():
+            src = path.read_text(encoding="utf-8-sig")
+            for m in re.finditer(r"\.Should\(\)\s*\.\w+\(", src):
+                start = src.rfind("\n", 0, m.start()) + 1
+                line_no = src.count("\n", 0, start) + 1
+                # Walk back over continuation lines to the start of the statement.
+                head = src[:m.start()]
+                nl = head.rfind(";")
+                stmt = head[nl + 1:] + src[m.start():m.end()]
+                stmt = stmt.strip()
+                if stmt.lstrip().startswith("//"):
+                    continue
+                if "await" not in stmt:
+                    self.fail(
+                        f"{path.name}:{line_no} asserts without await; TUnit requires "
+                        "every assertion to be awaited (TUnitAssertions0002)"
+                    )
+
     def test_no_await_on_a_bare_value(self):
-        """`(await Foo().Count).Should()` awaits the int, not the assertion (CS1061)."""
+        """`(await Foo().Count).Should()` awaits the int, not the assertion (CS1061).
+
+        The await must sit on the assertion itself, never inside parentheses around
+        a plain value.
+        """
         for path in test_sources():
             src = path.read_text(encoding="utf-8-sig")
             for i, line in enumerate(src.splitlines(), 1):
                 if re.search(r"\(\s*await\s+[^;]*?\.(Count|Length)\s*\)", line):
                     self.fail(
                         f"{path.name}:{i} awaits a plain value inside parentheses; "
-                        "drop the parentheses and the await, or await the assertion"
+                        "await the assertion itself instead"
                     )
 
     def test_void_test_methods_are_not_awaiting(self):
