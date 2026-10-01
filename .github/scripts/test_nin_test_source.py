@@ -111,5 +111,30 @@ class TunitAssertionTests(unittest.TestCase):
                         )
 
 
+    def test_synchronous_calls_are_not_awaited(self):
+        """`await SomeMethod(...)` on a plain sync return is CS1061.
+
+        Only awaits on actual async calls (or on the assertion itself) are valid,
+        so flag an await that sits directly on a call to a non-async method.
+        """
+        sync_calls = {
+            "ProxyOutboundFmt.Resolve", "V2rayFmt.ResolveToCustom",
+            "V2rayFmt.ResolveToCustomOutbound", "SingboxFmt.ResolveToCustom",
+            "PingQuality.FromSamples",
+        }
+        for path in test_sources():
+            src = path.read_text(encoding="utf-8-sig")
+            for i, line in enumerate(src.splitlines(), 1):
+                stripped = line.strip()
+                if stripped.startswith("//"):
+                    continue
+                for call in sync_calls:
+                    if f"await {call}(" in stripped and ".Should()" not in stripped:
+                        self.fail(
+                            f"{path.name}:{i} awaits {call}, which is synchronous; "
+                            "drop the await (CS1061)"
+                        )
+
+
 if __name__ == "__main__":
     unittest.main()

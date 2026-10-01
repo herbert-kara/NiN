@@ -233,7 +233,7 @@ public class ProxyOutboundFmtTests
         """;
 
         var json = $"[{Config(1)},{Config(2)},{Config(3)}]";
-        var list = await ProxyOutboundFmt.Resolve(json, "sub");
+        var list = ProxyOutboundFmt.Resolve(json, "sub");
 
         await list.Count.Should().BeEqualTo(6);
 
