@@ -36,7 +36,7 @@ public readonly record struct PingQuality(int Median, int Jitter, double Loss, i
         // Median of the successful samples.
         var median = ok.Count % 2 == 1
             ? ok[ok.Count / 2]
-            : (int)Math.Round((ok[(ok.Count / 2) - 1] + ok[ok.Count / 2]) / 2.0);
+            : RoundHalfUp((ok[(ok.Count / 2) - 1] + ok[ok.Count / 2]) / 2.0);
 
         // Interquartile spread, so one outlier cannot inflate the number.
         var jitter = Percentile(ok, 0.75) - Percentile(ok, 0.25);
@@ -57,20 +57,31 @@ public readonly record struct PingQuality(int Median, int Jitter, double Loss, i
     /// </remarks>
     private static int ScoreOf(int median, int jitter, double loss)
     {
-        var latencyPart = 1.0 - Clamp((median - 40) / 360.0);
-        var jitterPart = 1.0 - Clamp((double)jitter / Math.Max(60, median * 0.5));
+        var latencyPart = 1.0 - Clamp((median - 40) / 760.0);
+        // Math.Max(60, ...) keeps the divisor positive even for a median of 0.
+        var jitterPart = 1.0 - Clamp((double)jitter / Math.Max(60.0, median * 0.5));
         var lossPart = 1.0 - Clamp(loss / 0.5);
 
-        var score = (latencyPart * 0.4) + (jitterPart * 0.3) + (lossPart * 0.3);
-        return (int)Math.Round(Clamp(score) * 100);
+        var baseScore = Clamp((latencyPart * 0.4) + (jitterPart * 0.3) + (lossPart * 0.3));
+
+        // Cap for unusably slow links. Without it a 3 s link with perfectly steady
+        // timing would keep most of its latency-and-jitter marks and still rank
+        // around 60, which is worse than any usable link. Past 1.5 s nothing is
+        // comfortable, and past 2.6 s the score is zero regardless of stability.
+        var usability = Clamp((1500 - median) / 1100.0);
+        var score = baseScore * (0.25 + (0.75 * usability));
+        return RoundHalfUp(Clamp(score) * 100);
     }
 
     private static int Percentile(IReadOnlyList<int> sorted, double p)
     {
         if (sorted.Count == 0) return 0;
-        var index = (int)Math.Round((sorted.Count - 1) * p, MidpointRounding.AwayFromZero);
+        var index = RoundHalfUp((sorted.Count - 1) * p);
         return sorted[Math.Clamp(index, 0, sorted.Count - 1)];
     }
+
+    /// <summary>Rounds halves away from zero, so 2.5 is 3 and never 2.</summary>
+    private static int RoundHalfUp(double value) => (int)Math.Round(value, MidpointRounding.AwayFromZero);
 
     private static double Clamp(double value) => value < 0 ? 0 : value > 1 ? 1 : value;
 }

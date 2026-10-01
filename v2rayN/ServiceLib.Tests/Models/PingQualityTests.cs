@@ -125,4 +125,31 @@ public class PingQualityTests
         var awful = PingQuality.FromSamples([-1, 3000, -1, 4000, 5000]);
         await (awful.Score < 10).Should().BeTrue();
     }
+
+    [Test]
+    public async Task SlowButSteadyLinkCannotScoreWellOnStabilityAlone()
+    {
+        // The bug this guards: jitter is zero here, so without a usability cap a
+        // 3 s link collected most of its stability marks and ranked around 60,
+        // above genuinely usable links.
+        var slow = PingQuality.FromSamples([3000, 3000, 3000, 3000, 3000]);
+        await slow.Jitter.Should().BeEqualTo(0);
+        await (slow.Score < 25).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task UsableSixHundredMsStillScoresInTheMiddle()
+    {
+        var usable = PingQuality.FromSamples([600, 610, 595, 620, 605]);
+        await (usable.Score > 40).Should().BeTrue();
+        await (usable.Score < 75).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task UsableLinkOutranksAFailedOneDespiteWorseLatency()
+    {
+        var usable = PingQuality.FromSamples([600, 610, 595, 620, 605]);
+        var awful = PingQuality.FromSamples([-1, 3000, -1, 4000, 5000]);
+        await (usable.Score > awful.Score).Should().BeTrue();
+    }
 }
