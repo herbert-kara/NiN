@@ -41,6 +41,12 @@ public partial class ProfileItemModel : ReactiveObject
     [Reactive]
     public partial int Jitter { get; set; }
 
+    /// <summary>Score as shown in the grid: empty until a quality run happens.</summary>
+    public string QualityScoreText => QualityScore > 0 ? QualityScore.ToString() : string.Empty;
+
+    /// <summary>Jitter as shown in the grid: empty until a quality run happens.</summary>
+    public string JitterText => Jitter >= 0 ? Jitter.ToString() : string.Empty;
+
     [Reactive]
     public partial int QualityScore { get; set; }
 

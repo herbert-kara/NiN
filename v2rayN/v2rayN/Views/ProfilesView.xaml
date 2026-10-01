@@ -307,7 +307,7 @@
                         Header="{x:Static resx:ResUI.LvFlagged}" />
                     <base:MyDGTextColumn
                         Width="60"
-                        Binding="{Binding QualityScore}"
+                        Binding="{Binding QualityScoreText}"
                         ExName="QualityScore"
                         SortMemberPath="QualityScore"
                         Header="{x:Static resx:ResUI.LvQualityScore}">
@@ -319,7 +319,7 @@
                     </base:MyDGTextColumn>
                     <base:MyDGTextColumn
                         Width="60"
-                        Binding="{Binding Jitter}"
+                        Binding="{Binding JitterText}"
                         ExName="Jitter"
                         SortMemberPath="Jitter"
                         Header="{x:Static resx:ResUI.LvJitter}">

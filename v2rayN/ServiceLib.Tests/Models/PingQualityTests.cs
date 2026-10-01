@@ -152,4 +152,27 @@ public class PingQualityTests
         var awful = PingQuality.FromSamples([-1, 3000, -1, 4000, 5000]);
         await (usable.Score > awful.Score).Should().BeTrue();
     }
+
+
+    [Test]
+    public async Task None_MarksJitterAsUnmeasured()
+    {
+        // The grid shows -1 jitter as empty, but a bare 0 would read as a real,
+        // measured "perfectly steady link". PingQuality.None is the single source
+        // of that distinction, so pin it.
+        await PingQuality.None.Jitter.Should().BeEqualTo(0);
+        await PingQuality.None.Median.Should().BeEqualTo(-1);
+        await PingQuality.None.Score.Should().BeEqualTo(0);
+    }
+
+    [Test]
+    public async Task None_IsDistinctFromAMeasuredZeroJitterLink()
+    {
+        // A link that really answered with no spread must not be confused with a
+        // link that was never measured.
+        var steady = PingQuality.FromSamples([120, 120, 120, 120, 120]);
+        await steady.Median.Should().BeEqualTo(120);
+        await steady.Jitter.Should().BeEqualTo(0);
+        await PingQuality.None.Median.Should().BeEqualTo(-1);
+    }
 }

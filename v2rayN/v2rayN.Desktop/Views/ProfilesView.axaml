@@ -266,7 +266,7 @@
                         </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding QualityScore}"
+                                <TextBlock Text="{Binding QualityScoreText}"
                                            ToolTip.Tip="{Binding QualityDetail}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
@@ -278,7 +278,7 @@
                         </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <TextBlock Text="{Binding Jitter}"
+                                <TextBlock Text="{Binding JitterText}"
                                            ToolTip.Tip="{Binding QualityDetail}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
