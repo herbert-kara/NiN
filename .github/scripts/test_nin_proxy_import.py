@@ -67,14 +67,12 @@ class ProxyOutboundImportTests(unittest.TestCase):
     def test_local_variables_are_declared_before_first_use(self):
         """C# has no hoisting: touching a local before its `var` line is an error.
 
-        This slipped through once in the converter (a Setter before the object was
-        constructed) and a delimiter check cannot see it. Scope is per method, since
-        a name declared in one method says nothing about another.
+        Scans each method body and, for every declared local, reports any earlier
+        line that already mentions it. Mentions inside string literals and other
+        members' names (`server["password"]`, `profile.Password`) are not uses of
+        the local, so those are excluded rather than guessed at.
         """
         lines = self.converter.splitlines()
-
-        # Split into method bodies by indentation: a line at 4 spaces starting with
-        # "private"/"public"/"internal" starts a new method.
         starts = [
             i for i, l in enumerate(lines)
             if re.match(r"^    (private|public|internal|protected)\b.*\(", l)
@@ -89,16 +87,20 @@ class ProxyOutboundImportTests(unittest.TestCase):
                     declared.setdefault(m.group(1), i)
 
             for name, decl_at in declared.items():
-                for i, line in enumerate(segment):
-                    if i >= decl_at:
-                        break
+                for i, line in enumerate(segment[:decl_at]):
                     stripped = line.lstrip()
-                    if stripped.startswith(("//", "*", "///")):
+                    if stripped.startswith(("//", "*", "///", "///")):
                         continue
-                    if re.search(rf"\b{re.escape(name)}\b", line):
+                    # Strip every string literal first: a name quoted inside one is
+                    # a JSON key, not a reference to the local.
+                    code = re.sub(r'"[^"]*"', '""', line)
+                    # A member access (profile.Password) is not the local either.
+                    if re.search(rf"\.{re.escape(name)}\b", code):
+                        continue
+                    if re.search(rf"(?<![\w]){re.escape(name)}\b", code):
                         self.fail(
-                            f"ProxyOutboundFmt.cs line {lo + i + 1} uses '{name}' but "
-                            f"it is only declared on line {lo + decl_at + 1}"
+                            f"ProxyOutboundFmt.cs line {lo + i + 1} uses '{name}' "
+                            f"before its declaration on line {lo + decl_at + 1}"
                         )
 
     def test_no_field_assignment_on_init_only_records(self):
@@ -207,4 +209,38 @@ class NiNImportReachabilityTests(unittest.TestCase):
         i_fallback = src.index("ResolveToCustomOutbound(strData, subRemarks)")
         self.assertLess(i_new, i_fallback,
                         "ProxyOutboundFmt must run before ResolveToCustomOutbound too")
+
+class NiNCredentialShapeTests(unittest.TestCase):
+    """Credentials live in different places per protocol.
+
+    vmess/vless put the id inside settings.vnext[0].users[0]; trojan and
+    shadowsocks put the password straight on servers[0]. Requiring users[]
+    unconditionally dropped every Trojan and Shadowsocks node -- half of a mixed
+    subscription, silently.
+    """
+
+    CONVERTER = REPO / "v2rayN/ServiceLib/Handler/Fmt/ProxyOutboundFmt.cs"
+
+    def test_server_level_password_is_read(self):
+        src = self.CONVERTER.read_text(encoding="utf-8-sig")
+        self.assertIn('server["password"]', src,
+                      "the server-level password (trojan/ss) must be read")
+        self.assertIn("serverPassword", src)
+
+    def test_users_array_is_optional(self):
+        """users[] must not be a hard requirement, or trojan/ss can never parse."""
+        src = self.CONVERTER.read_text(encoding="utf-8-sig")
+        bad = re.search(
+            r'users\s+is\s+not\s+JsonArray[^;]*;\s*\n\s*\{[^}]*return false',
+            src)
+        self.assertIsNone(
+            bad,
+            "a missing users[] must not reject the outbound outright; trojan and "
+            "shadowsocks have no users[] at all")
+
+    def test_user_access_is_null_safe(self):
+        src = self.CONVERTER.read_text(encoding="utf-8-sig")
+        self.assertNotRegex(src, r'(?<![?\w])user\["',
+                            "user[] must be written as user?[\"..\"] because users[] "
+                            "is now optional")
 

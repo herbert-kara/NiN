@@ -235,7 +235,7 @@ public class ProxyOutboundFmtTests
         var json = $"[{Config(1)},{Config(2)},{Config(3)}]";
         var list = ProxyOutboundFmt.Resolve(json, "sub");
 
-        await list.Count.Should().BeEqualTo(0, $"DIAGNOSTIC: parsed {list.Count} of an expected 6; protocols: {string.Join(",", list.Select(x => x.ConfigType + "@" + x.Address + ":" + x.Port + " path=" + x.Network + "/" + x.Path))}");
+        await list.Count.Should().BeEqualTo(6);
 
         var vless = list.Where(x => x.ConfigType == EConfigType.VLESS).ToList();
         var trojan = list.Where(x => x.ConfigType == EConfigType.Trojan).ToList();
@@ -260,5 +260,11 @@ public class ProxyOutboundFmtTests
         await vless.Select(x => x.Path).Distinct().Count().Should().BeEqualTo(3);
         await vless[0].Path.Should().BeEqualTo("/p1");
         await vless[1].Path.Should().BeEqualTo("/p2");
+
+        // Trojan keeps the password that sits directly on the server object; it has
+        // no users[] array at all, and requiring one used to drop every Trojan.
+        await trojan.Select(x => x.Password).Distinct().Count().Should().BeEqualTo(3);
+        await trojan[0].Password.Should().BeEqualTo("pw-1");
+        await trojan[2].Password.Should().BeEqualTo("pw-3");
     }
 }

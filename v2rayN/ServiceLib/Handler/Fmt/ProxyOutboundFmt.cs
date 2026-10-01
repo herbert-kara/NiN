@@ -118,14 +118,22 @@ public static class ProxyOutboundFmt
             return false;
         }
 
+        // vmess/vless carry their credential in users[0]; trojan and shadowsocks put
+        // it straight on the server object. Requiring users[] unconditionally threw
+        // every Trojan away and silently halved a mixed subscription.
+        var serverPassword = server["password"]?.ToString() ?? string.Empty;
+
+        JsonObject? user = null;
         var users = server["users"] ?? server["user"];
-        if (users is not JsonArray userArray || userArray.Count == 0 || userArray[0] is not JsonObject user)
+        if (users is JsonArray userArray && userArray.Count > 0)
         {
-            return false;
+            user = userArray[0] as JsonObject;
         }
 
-        var id = user["id"]?.ToString() ?? string.Empty;
-        var password = user["password"]?.ToString() ?? string.Empty;
+        var id = user?["id"]?.ToString() ?? string.Empty;
+
+        // Declared before first use: the per-protocol branches below all read it.
+        var password = user?["password"]?.ToString() ?? serverPassword;
 
         profile.ConfigType = configType;
         profile.Address = address.TrimEx();
@@ -141,7 +149,7 @@ public static class ProxyOutboundFmt
                     return false;
                 }
                 profile.Password = id;
-                var flow = user["flow"]?.ToString();
+                var flow = user?["flow"]?.ToString();
                 if (flow.IsNotEmpty())
                 {
                     profile.SetProtocolExtra(new ProtocolExtraItem { Flow = flow });
@@ -165,7 +173,7 @@ public static class ProxyOutboundFmt
                 break;
 
             case EConfigType.Shadowsocks:
-                var method = user["method"]?.ToString();
+                var method = user?["method"]?.ToString();
                 if (password.IsNullOrEmpty() || method.IsNullOrEmpty())
                 {
                     return false;
