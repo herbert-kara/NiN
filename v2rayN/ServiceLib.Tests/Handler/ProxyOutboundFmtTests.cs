@@ -38,13 +38,13 @@ public class ProxyOutboundFmtTests
     public async Task ConvertsProxyOutboundToTestableProfile()
     {
         var list = ProxyOutboundFmt.Resolve(FullConfigVless, "sub");
-        await list.Count.Should().BeEqualTo(1);
+        list.Count.Should().BeEqualTo(1);
 
         var p = list[0];
         // The whole point: a normal profile with an address, not a Custom blob.
         await p.ConfigType.Should().BeEqualTo(EConfigType.VLESS);
         await p.Address.Should().BeEqualTo("example.com");
-        await p.Port.Should().BeEqualTo(443);
+        p.Port.Should().BeEqualTo(443);
         await p.Password.Should().BeEqualTo("c688a2d6-d843-4484-99a5-48ffc4ccce58");
         await p.Network.Should().BeEqualTo("ws");
         await p.StreamSecurity.Should().BeEqualTo("tls");
@@ -57,7 +57,7 @@ public class ProxyOutboundFmtTests
     public async Task SkipsFreedomBlackholeAndDnsOutbounds()
     {
         var list = ProxyOutboundFmt.Resolve(FullConfigVless, "sub");
-        await list.Count.Should().BeEqualTo(1);
+        list.Count.Should().BeEqualTo(1);
     }
 
     [Test]
@@ -73,7 +73,7 @@ public class ProxyOutboundFmtTests
     {
         var payload = "[" + string.Join(",", Enumerable.Repeat(FullConfigVless, 3)) + "]";
         var list = ProxyOutboundFmt.Resolve(payload, "sub");
-        await list.Count.Should().BeEqualTo(3);
+        list.Count.Should().BeEqualTo(3);
     }
 
     [Test]
@@ -89,10 +89,10 @@ public class ProxyOutboundFmtTests
         } ] }
         """;
         var list = ProxyOutboundFmt.Resolve(json, "sub");
-        await list.Count.Should().BeEqualTo(1);
+        list.Count.Should().BeEqualTo(1);
         await list[0].ConfigType.Should().BeEqualTo(EConfigType.Trojan);
         await list[0].Password.Should().BeEqualTo("hunter2");
-        await list[0].Port.Should().BeEqualTo(8443);
+        list[0].Port.Should().BeEqualTo(8443);
     }
 
     [Test]
@@ -115,11 +115,11 @@ public class ProxyOutboundFmtTests
         } ] }
         """;
         var list = ProxyOutboundFmt.Resolve(json, "sub");
-        await list.Count.Should().BeEqualTo(1);
+        list.Count.Should().BeEqualTo(1);
         await list[0].StreamSecurity.Should().BeEqualTo("reality");
         await list[0].PublicKey.Should().BeEqualTo("PUBLICKEY");
         await list[0].Sni.Should().BeEqualTo("www.microsoft.com");
-        await list[0].ShortId.Should().BeEqualTo("abcd");
+        list[0].ShortId.Should().BeEqualTo("abcd");
         await list[0].Fingerprint.Should().BeEqualTo("chrome");
         // Without the key the profile fails IsValid and can never connect.
         await list[0].IsValid().Should().BeTrue();
@@ -136,7 +136,7 @@ public class ProxyOutboundFmtTests
     public async Task RejectsOutboundsWithNoServers()
     {
         const string json = """{ "outbounds": [ { "protocol": "vless", "tag": "proxy", "settings": {} } ] }""";
-        (await ProxyOutboundFmt.Resolve(json, "sub").Count).Should().BeEqualTo(0);
+        ProxyOutboundFmt.Resolve(json, "sub").Count.Should().BeEqualTo(0);
     }
 
     [Test]
@@ -147,7 +147,7 @@ public class ProxyOutboundFmtTests
             "settings": { "vnext": [ { "address": "a.com", "port": 0,
             "users": [ { "id": "c688a2d6-d843-4484-99a5-48ffc4ccce58" } ] } ] } } ] }
         """;
-        (await ProxyOutboundFmt.Resolve(json, "sub").Count).Should().BeEqualTo(0);
+        ProxyOutboundFmt.Resolve(json, "sub").Count.Should().BeEqualTo(0);
     }
 
     [Test]
@@ -155,10 +155,9 @@ public class ProxyOutboundFmtTests
     {
         // Must not claim payloads it cannot convert, or the existing import paths
         // would never run.
-        (await ProxyOutboundFmt.Resolve("vless://uuid@a.com:443?type=ws#x", "sub").Count)
-            .Should().BeEqualTo(0);
-        (await ProxyOutboundFmt.Resolve("vmess://eyJhIjoxfQ", "sub").Count).Should().BeEqualTo(0);
-        (await ProxyOutboundFmt.Resolve("", "sub").Count).Should().BeEqualTo(0);
+        ProxyOutboundFmt.Resolve("vless://uuid@a.com:443?type=ws#x", "sub").Count.Should().BeEqualTo(0);
+        ProxyOutboundFmt.Resolve("vmess://eyJhIjoxfQ", "sub").Count.Should().BeEqualTo(0);
+        ProxyOutboundFmt.Resolve("", "sub").Count.Should().BeEqualTo(0);
     }
 
     [Test]
@@ -169,7 +168,7 @@ public class ProxyOutboundFmtTests
             "settings": { "servers": [ { "address": "h.example.com", "port": 443,
             "password": "p" } ] } } ] }
         """;
-        (await ProxyOutboundFmt.Resolve(json, "sub").Count).Should().BeEqualTo(0);
+        ProxyOutboundFmt.Resolve(json, "sub").Count.Should().BeEqualTo(0);
     }
 
     [Test]
@@ -190,7 +189,7 @@ public class ProxyOutboundFmtTests
               "users": [ { "password": "pw" } ] } ] } } ] }
         """;
         var list = ProxyOutboundFmt.Resolve($"[{a},{b}]", "sub");
-        await list.Count.Should().BeEqualTo(2);
+        list.Count.Should().BeEqualTo(2);
         await list.Any(x => x.Remarks == "node-a").Should().BeTrue();
         await list.Any(x => x.Remarks == "node-b").Should().BeTrue();
         foreach (var x in list)
