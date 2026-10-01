@@ -235,7 +235,7 @@ public class ProxyOutboundFmtTests
         var json = $"[{Config(1)},{Config(2)},{Config(3)}]";
         var list = ProxyOutboundFmt.Resolve(json, "sub");
 
-        await list.Count.Should().BeEqualTo(6);
+        await list.Count.Should().BeEqualTo(0, $"DIAGNOSTIC: parsed {list.Count} of an expected 6; protocols: {string.Join(",", list.Select(x => x.ConfigType + "@" + x.Address + ":" + x.Port + " path=" + x.Network + "/" + x.Path))}");
 
         var vless = list.Where(x => x.ConfigType == EConfigType.VLESS).ToList();
         var trojan = list.Where(x => x.ConfigType == EConfigType.Trojan).ToList();
