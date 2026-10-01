@@ -112,7 +112,8 @@ public static class ProxyOutboundFmt
         {
             return false;
         }
-        if (server["port"]?.ToInt() is not int port or <= 0 or >= 65536)
+        var port = ReadInt(server["port"]);
+        if (port is null or <= 0 or >= 65536)
         {
             return false;
         }
@@ -128,7 +129,7 @@ public static class ProxyOutboundFmt
 
         profile.ConfigType = configType;
         profile.Address = address.TrimEx();
-        profile.Port = port;
+        profile.Port = port.Value;
         profile.Remarks = SanitiseRemarks(outbound["tag"]?.ToString(), fallbackRemarks);
         profile.Network = string.Empty;
 
@@ -192,17 +193,6 @@ public static class ProxyOutboundFmt
             profile.Network = network;
         }
 
-        var transport = new TransportExtraItem();
-
-        // Free-form transport options (raw header type) live outside ws/grpc;
-        // without them those nodes connect but behave oddly.
-        var rawHeaderType = stream["rawHeader"]?["header"]?["type"]?.ToString()
-            ?? stream["tcpSettings"]?["header"]?["type"]?.ToString();
-        if (rawHeaderType.IsNotEmpty())
-        {
-            transport.RawHeaderType = rawHeaderType;
-        }
-
         var security = stream["security"]?.ToString();
         if (security.IsNotEmpty() && security != "none")
         {
@@ -212,11 +202,12 @@ public static class ProxyOutboundFmt
         var tls = stream["tlsSettings"] as JsonObject;
         var reality = stream["realitySettings"] as JsonObject;
         var serverName = tls?["serverName"]?.ToString();
+
         if (serverName.IsNotEmpty())
         {
             profile.Sni = serverName;
         }
-        if (tls?["allowInsecure"]?.ToBool() == true)
+        if (ReadBool(tls?["allowInsecure"]))
         {
             profile.AllowInsecure = Global.StringTrue;
         }
@@ -240,26 +231,43 @@ public static class ProxyOutboundFmt
         }
 
         var ws = stream["wsSettings"] as JsonObject;
-        if (ws is not null)
-        {
-            transport.Host = ws["headers"]?["Host"]?.ToString() ?? serverName ?? string.Empty;
-            transport.Path = ws["path"]?.ToString() ?? string.Empty;
-        }
-        else if (serverName.IsNotEmpty())
-        {
-            // A non-ws transport still needs the host carried for TLS/SNI.
-            transport.Host = serverName;
-        }
-
         var grpc = stream["grpcSettings"] as JsonObject;
-        if (grpc is not null)
-        {
-            transport.GrpcAuthority = grpc["authority"]?.ToString() ?? string.Empty;
-            transport.GrpcServiceName = grpc["serviceName"]?.ToString() ?? string.Empty;
-            transport.GrpcMode = grpc["multiMode"]?.ToBool() == true ? "multi" : "gun";
-        }
+        var rawHeaderType = stream["rawHeader"]?["header"]?["type"]?.ToString()
+            ?? stream["tcpSettings"]?["header"]?["type"]?.ToString();
 
-        profile.SetTransportExtra(transport);
+        // TransportExtraItem is a record with init-only setters, so every field
+        // has to be set in this one initializer rather than assigned afterwards.
+        profile.SetTransportExtra(new TransportExtraItem
+        {
+            Path = ws?["path"]?.ToString() ?? string.Empty,
+            // A non-ws transport still needs the host carried for TLS/SNI.
+            Host = ws?["headers"]?["Host"]?.ToString() ?? serverName ?? string.Empty,
+            GrpcAuthority = grpc?["authority"]?.ToString() ?? string.Empty,
+            GrpcServiceName = grpc?["serviceName"]?.ToString() ?? string.Empty,
+            GrpcMode = ReadBool(grpc?["multiMode"]) ? "multi" : "gun",
+            RawHeaderType = rawHeaderType ?? string.Empty,
+        });
+    }
+
+    /// <summary>Reads a JSON number, tolerating both 443 and "443".</summary>
+    private static int? ReadInt(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return null;
+        }
+        return int.TryParse(node.ToString(), out var value) ? value : null;
+    }
+
+    /// <summary>Reads a JSON boolean, tolerating both true and "true".</summary>
+    private static bool ReadBool(JsonNode? node)
+    {
+        if (node is null)
+        {
+            return false;
+        }
+        var text = node.ToString();
+        return text.Equals("true", StringComparison.OrdinalIgnoreCase) || text == "1";
     }
 
     /// <summary>

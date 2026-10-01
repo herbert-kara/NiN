@@ -101,6 +101,42 @@ class ProxyOutboundImportTests(unittest.TestCase):
                             f"it is only declared on line {lo + decl_at + 1}"
                         )
 
+    def test_no_field_assignment_on_init_only_records(self):
+        """TransportExtraItem/ProtocolExtraItem are records with init setters.
+
+        Assigning `transport.Host = x` after construction is CS8850/CS8852 and
+        will not compile; every field has to go in the object initializer.
+        """
+        import re as _re
+        records = {}
+        for name in ("TransportExtraItem", "ProtocolExtraItem"):
+            path = REPO / "v2rayN/ServiceLib/Models/Entities" / f"{name}.cs"
+            if not path.exists():
+                continue
+            src = path.read_text(encoding="utf-8-sig")
+            fields = set(
+                _re.findall(r"public\s+\w[\w<>?\.]*\s+(\w+)\s*\{\s*get;\s*init;", src)
+            )
+            if not fields:
+                continue
+            records[name] = fields
+
+        # Local variable names in the converter, mapped to the record they hold.
+        var_records = {"transport": "TransportExtraItem", "protocolExtra": "ProtocolExtraItem"}
+        self.assertTrue(
+            any(records.values()),
+            "expected TransportExtraItem/ProtocolExtraItem to be records with init setters",
+        )
+
+        offenders = _re.findall(r"\n\s*(\w+)\.(\w+)\s*=[^=]", self.converter)
+        for var, field in offenders:
+            record = var_records.get(var)
+            if record and field in records.get(record, set()):
+                self.fail(
+                    f"ProxyOutboundFmt.cs assigns {var}.{field}; {record} is a record "
+                    "with init-only setters, so it must be set in the object initializer"
+                )
+
 
 if __name__ == "__main__":
     unittest.main()
