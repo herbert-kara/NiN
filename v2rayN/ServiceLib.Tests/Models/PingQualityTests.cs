@@ -28,8 +28,8 @@ public class PingQualityTests
         await q.Jitter.Should().BeEqualTo(0);
         await q.Loss.Should().BeEqualTo(0.0);
         // Steady, but 120 ms is not at the top of the latency curve.
-        await q.Score.Should().BeGreaterThan(80);
-        await q.Score.Should().BeLessThan(100);
+        await (q.Score > 80).Should().BeTrue();
+        await (q.Score < 100).Should().BeTrue();
     }
 
     [Test]
@@ -60,7 +60,7 @@ public class PingQualityTests
         // The whole point of the feature: a fast but swinging link is worse.
         var steady = PingQuality.FromSamples([80, 81, 80, 79, 80]);
         var erratic = PingQuality.FromSamples([20, 300, 25, 40, 90]);
-        await steady.Jitter.Should().BeLessThan(erratic.Jitter);
+        await (steady.Jitter < erratic.Jitter).Should().BeTrue();
         await (steady.Score > erratic.Score).Should().BeTrue();
     }
 
@@ -71,7 +71,7 @@ public class PingQualityTests
         var clean = PingQuality.FromSamples([150, 150, 150, 150, 150]);
         var lossy = PingQuality.FromSamples([150, 150, 150, 150, -1]);
         await (lossy.Score < clean.Score).Should().BeTrue();
-        await (clean.Score - lossy.Score).Should().BeGreaterThan(5);
+        await (clean.Score - lossy.Score > 5).Should().BeTrue();
     }
 
     [Test]
@@ -91,9 +91,9 @@ public class PingQualityTests
             samples = new List<int>();
             for (var j = 0; j <= i % 7; j++) samples.Add(j % 3 == 0 ? 0 : (j * 37) % 5000);
             var q = PingQuality.FromSamples(samples);
-            await q.Score.Should().BeInRange(0, 100);
-            await q.Loss.Should().BeInRange(0.0, 1.0);
-            await q.Jitter.Should().BeGreaterThanOrEqualTo(0);
+            await (q.Score >= 0 && q.Score <= 100).Should().BeTrue();
+            await (q.Loss >= 0.0 && q.Loss <= 1.0).Should().BeTrue();
+            await (q.Jitter >= 0).Should().BeTrue();
         }
     }
 
@@ -104,7 +104,7 @@ public class PingQualityTests
         // full min/max range would.
         var withOutlier = PingQuality.FromSamples([100, 101, 99, 102, 900]);
         var rangeBased = 900 - 99;
-        await withOutlier.Jitter.Should().BeLessThan(rangeBased / 2);
+        await (withOutlier.Jitter < rangeBased / 2).Should().BeTrue();
         // The median must ignore the outlier entirely.
         await withOutlier.Median.Should().BeEqualTo(101);
     }
@@ -116,13 +116,13 @@ public class PingQualityTests
         await q.Median.Should().BeEqualTo(123);
         await q.Jitter.Should().BeEqualTo(0);
         await q.Loss.Should().BeEqualTo(0.0);
-        await q.Score.Should().BeGreaterThan(0);
+        await (q.Score > 0).Should().BeTrue();
     }
 
     [Test]
     public async Task VerySlowAndVeryJitteryLinksScoreNearZero()
     {
         var awful = PingQuality.FromSamples([-1, 3000, -1, 4000, 5000]);
-        await awful.Score.Should().BeLessThan(10);
+        await (awful.Score < 10).Should().BeTrue();
     }
 }
