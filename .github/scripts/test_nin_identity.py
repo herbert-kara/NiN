@@ -4,7 +4,7 @@ from pathlib import Path
 
 try:
     from PIL import Image
-except ModuleNotFoundError:  # Pillow is installed in CI, not necessarily locally
+except ModuleNotFoundError:  # installed in CI, not necessarily locally
     Image = None
 
 ROOT = Path(__file__).resolve().parents[2]
