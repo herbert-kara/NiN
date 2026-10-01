@@ -309,14 +309,26 @@
                         Width="60"
                         Binding="{Binding QualityScore}"
                         ExName="QualityScore"
-                        Header="{x:Static resx:ResUI.LvQualityScore}"
-                        ToolTip="{x:Static resx:ResUI.TipQualityScore}" />
+                        SortMemberPath="QualityScore"
+                        Header="{x:Static resx:ResUI.LvQualityScore}">
+                        <DataGridTextColumn.CellStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="ToolTip" Value="{x:Static resx:ResUI.TipQualityScore}" />
+                            </Style>
+                        </DataGridTextColumn.CellStyle>
+                    </base:MyDGTextColumn>
                     <base:MyDGTextColumn
                         Width="60"
                         Binding="{Binding Jitter}"
                         ExName="Jitter"
-                        Header="{x:Static resx:ResUI.LvJitter}"
-                        ToolTip="{x:Static resx:ResUI.TipJitter}" />
+                        SortMemberPath="Jitter"
+                        Header="{x:Static resx:ResUI.LvJitter}">
+                        <DataGridTextColumn.CellStyle>
+                            <Style TargetType="TextBlock">
+                                <Setter Property="ToolTip" Value="{x:Static resx:ResUI.TipJitter}" />
+                            </Style>
+                        </DataGridTextColumn.CellStyle>
+                    </base:MyDGTextColumn>
                     <base:MyDGTextColumn
                         Width="120"
                         Binding="{Binding Address}"
