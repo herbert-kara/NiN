@@ -262,7 +262,7 @@
                     <DataGridTemplateColumn SortMemberPath="QualityScore" Tag="QualityScore" IsReadOnly="True">
                         <DataGridTemplateColumn.Header>
                             <TextBlock Text="{x:Static resx:ResUI.LvQualityScore}"
-                                       ToolTip.Tip="{Binding QualityDetail}" />
+                                       ToolTip.Tip="{x:Static resx:ResUI.TipQualityScore}" />
                         </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
@@ -274,7 +274,7 @@
                     <DataGridTemplateColumn SortMemberPath="Jitter" Tag="Jitter" IsReadOnly="True">
                         <DataGridTemplateColumn.Header>
                             <TextBlock Text="{x:Static resx:ResUI.LvJitter}"
-                                       ToolTip.Tip="{Binding QualityDetail}" />
+                                       ToolTip.Tip="{x:Static resx:ResUI.TipJitter}" />
                         </DataGridTemplateColumn.Header>
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>

@@ -96,5 +96,32 @@ class XamlAttributeTests(unittest.TestCase):
                     self.assertIn(name, known)
 
 
+    def test_headers_do_not_bind_row_properties(self):
+        """A column header has no row DataContext.
+
+        In Avalonia a `{Binding SomeRowProp}` inside a header resolves against the
+        grid's DataContext (the view model), which does not have the property:
+        `error AVLN2000: Unable to resolve property or method of name 'X' on type
+        'ProfilesViewModel'`. Header tooltips must be static resources.
+        """
+        vm = (REPO / "v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs").read_text(encoding="utf-8-sig")
+        for rel in XAML:
+            if not rel.endswith(".axaml"):
+                continue
+            text = (REPO / rel).read_text(encoding="utf-8-sig")
+            for block in re.findall(r"\.Header>(.*?)</DataGridTemplateColumn\.Header>", text, re.S):
+                for name in set(re.findall(r"\{Binding\s+(\w+)", block)):
+                    # The binding only compiles if the view model itself has the
+                    # property; finding nothing here is the failure, not a pass.
+                    with self.subTest(view=rel, prop=name):
+                        self.assertRegex(
+                            vm,
+                            rf"public\s+[\w<>?\.]+\s+{re.escape(name)}\b",
+                            f"{rel}: header binds '{name}', which the grid's DataContext "
+                            "(ProfilesViewModel) does not expose, so it cannot resolve "
+                            "there - use a static resource in the header instead",
+                        )
+
+
 if __name__ == "__main__":
     unittest.main()
