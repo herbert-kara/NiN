@@ -15,6 +15,10 @@ WATCHED = [
     "v2rayN/ServiceLib/Common/NiNRelease.cs",
     "v2rayN/ServiceLib/Common/ProfileCountry.cs",
     "v2rayN/ServiceLib/Global.cs",
+    "v2rayN/ServiceLib/Manager/ProfileExManager.cs",
+    "v2rayN/ServiceLib/Models/Dto/PingQuality.cs",
+    "v2rayN/ServiceLib/Models/Entities/ProfileExItem.cs",
+    "v2rayN/ServiceLib/Enums/EServerColName.cs",
     "v2rayN/ServiceLib/Handler/ConnectionHandler.cs",
     "v2rayN/ServiceLib/Handler/ConfigHandler.cs",
     "v2rayN/ServiceLib/Models/Dto/ProfileItemModel.cs",
@@ -31,6 +35,7 @@ WATCHED = [
     "v2rayN/v2rayN/Views/ProfilesView.xaml.cs",
     "v2rayN/v2rayN.Desktop/Converters/FlagStatusConverter.cs",
     "v2rayN/ServiceLib.Tests/Models/NiNReleaseTests.cs",
+    "v2rayN/ServiceLib.Tests/Models/PingQualityTests.cs",
     "v2rayN/ServiceLib.Tests/Services/ServerFlaggedServiceTests.cs",
 ]
 

@@ -156,6 +156,17 @@ public class ProfileExManager
         IndexIdEnqueue(indexId);
     }
 
+    /// <summary>Stores the in-tunnel quality of the last real-ping run for this config.</summary>
+    public void SetTestQuality(string indexId, PingQuality quality)
+    {
+        var profileEx = GetProfileExItem(indexId);
+
+        profileEx.Jitter = quality.Median < 0 ? -1 : quality.Jitter;
+        profileEx.PacketLoss = quality.Loss;
+        profileEx.QualityScore = quality.Score;
+        IndexIdEnqueue(indexId);
+    }
+
     public void SetSort(string indexId, int sort)
     {
         var profileEx = GetProfileExItem(indexId);

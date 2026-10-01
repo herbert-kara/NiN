@@ -488,9 +488,14 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
         ConcurrentDictionary<string, byte> completedIds, CancellationToken ct = default)
     {
         var webProxy = new WebProxy($"socks5://{Global.Loopback}:{it.Port}");
-        var responseTime = await ConnectionHandler.GetRealPingTime(webProxy, ct);
+        // Several in-tunnel samples, not one: the median is the delay we report and
+        // the spread/loss are what separate a steady link from a lucky one.
+        var quality = await ConnectionHandler.GetRealPingQuality(
+            webProxy, ConnectionHandler.RealPingSamples, ct);
+        var responseTime = quality.Median;
 
         ProfileExManager.Instance.SetTestDelay(it.IndexId, responseTime);
+        ProfileExManager.Instance.SetTestQuality(it.IndexId, quality);
         await UpdateFunc(it.IndexId, responseTime.ToString());
 
         if (!_config.UiItem.HideColumnIpInfo && responseTime > 0)

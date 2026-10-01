@@ -1,4 +1,4 @@
-﻿"""Fail closed if an upstream merge removes NiN's identity or country integration."""
+"""Fail closed if an upstream merge removes NiN's identity or country integration."""
 from pathlib import Path
 import hashlib
 import json
@@ -10,6 +10,10 @@ ROOT = Path(__file__).resolve().parents[2]
 def check():
     required = {
         'v2rayN/ServiceLib/Global.cs': ['AppName = "NiN"', '"herbert-kara/NiN"'],
+        'v2rayN/ServiceLib/Models/Dto/PingQuality.cs': ['FromSamples', 'Jitter', 'Loss', 'Score'],
+        'v2rayN/ServiceLib/Handler/ConnectionHandler.cs': ['GetRealPingQuality', 'RealPingSamples'],
+        'v2rayN/ServiceLib/Services/SpeedtestService.cs': ['SetTestQuality'],
+        'v2rayN/ServiceLib/Models/Entities/ProfileExItem.cs': ['Jitter', 'PacketLoss', 'QualityScore'],
         'v2rayN/ServiceLib/Services/UpdateService.cs': ['NiNRelease.SelectTag'],
         'v2rayN/ServiceLib/Common/NiNRelease.cs': ['SelectTag', r'-nin\.(?<rev>\d{1,6})'],
         'v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs': ['ServerCountryService.Instance.ResolveAsync', 'ServerFlaggedService.Instance.ResolveAsync', 'LookupServerFlagsAsync'],

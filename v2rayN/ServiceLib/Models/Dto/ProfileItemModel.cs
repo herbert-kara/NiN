@@ -35,6 +35,29 @@ public partial class ProfileItemModel : ReactiveObject
     [Reactive]
     public partial string SpeedVal { get; set; }
 
+    // In-tunnel quality from the last real-ping run. A config that answers quickly
+    // but swings wildly, or drops requests, is worse than a steadier one, and a
+    // single delay number cannot show that.
+    [Reactive]
+    public partial int Jitter { get; set; }
+
+    [Reactive]
+    public partial int QualityScore { get; set; }
+
+    /// <summary>Loss as a whole percentage for display; -1 when never measured.</summary>
+    public int LossVal { get; set; } = -1;
+
+    /// <summary>"80 ms / ±12 / 0% / 87" style summary for the column tooltip.</summary>
+    public string QualityDetail
+    {
+        get
+        {
+            if (Delay <= 0) return string.Empty;
+            var loss = LossVal < 0 ? "-" : $"{LossVal}%";
+            return $"Median {Delay} ms, jitter {Jitter} ms, loss {loss}, score {QualityScore}/100";
+        }
+    }
+
     private string _ipInfo;
     public string IpInfo
     {

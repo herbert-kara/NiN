@@ -1,4 +1,4 @@
-﻿"""Fail-closed behavior tests for nin_guard.py, run against an isolated temp root.
+"""Fail-closed behavior tests for nin_guard.py, run against an isolated temp root.
 
 Copies only the files nin_guard inspects (required text files + the asset
 manifest and every file it hashes) from the real repo into a pristine
@@ -27,6 +27,11 @@ TEXT_FILES = [
     'v2rayN/ServiceLib/Global.cs',
     'v2rayN/ServiceLib/Services/UpdateService.cs',
     'v2rayN/ServiceLib/Common/NiNRelease.cs',
+    'v2rayN/ServiceLib/Models/Dto/PingQuality.cs',
+    'v2rayN/ServiceLib/Models/Entities/ProfileExItem.cs',
+    'v2rayN/ServiceLib/Services/SpeedtestService.cs',
+    'v2rayN/ServiceLib/Enums/EServerColName.cs',
+    'v2rayN/ServiceLib/Manager/ProfileExManager.cs',
     'v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs',
     'v2rayN/ServiceLib/Models/Dto/ProfileItemModel.cs',
     'v2rayN/v2rayN/Views/ProfilesView.xaml',

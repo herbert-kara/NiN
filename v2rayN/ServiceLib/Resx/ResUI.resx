@@ -1941,4 +1941,16 @@ The "Get Certificate" action may fail if a self-signed certificate is used or if
   <data name="MsgEchOutboundTagConflict" xml:space="preserve">
     <value>The tag "{0}" of EchOutbound is already used by another outbound</value>
   </data>
+  <data name="LvQualityScore" xml:space="preserve">
+    <value>Score</value>
+  </data>
+  <data name="LvJitter" xml:space="preserve">
+    <value>Jitter</value>
+  </data>
+  <data name="TipQualityScore" xml:space="preserve">
+    <value>Composite quality from median latency, jitter and packet loss (0-100, higher is better)</value>
+  </data>
+  <data name="TipJitter" xml:space="preserve">
+    <value>In-tunnel variation of the real-ping samples (p75 - p25), in milliseconds</value>
+  </data>
 </root>

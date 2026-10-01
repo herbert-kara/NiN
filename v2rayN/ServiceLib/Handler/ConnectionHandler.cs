@@ -64,46 +64,71 @@ public static class ConnectionHandler
     }
 
     /// <summary>
-    /// Measures response time by sending HTTP requests through proxy.
-    /// </summary>
-    public static async Task<int> GetRealPingTime(IWebProxy? webProxy, CancellationToken cancellationToken = default)
-    {
-        var url = AppManager.Instance.Config.SpeedTestItem.SpeedPingTestUrl;
-        var responseTime = -1;
-        try
-        {
-            using var timeoutCts = new CancellationTokenSource();
-            timeoutCts.CancelAfter(Global.LocalFetch);
-            using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
-            var linkedToken = linkedCts.Token;
-            using var client = new HttpClient(new SocketsHttpHandler()
-            {
-                Proxy = webProxy,
-                UseProxy = webProxy != null,
-                ConnectTimeout = Global.LocalFetch,
-            });
+        /// Measures response time by sending HTTP requests through proxy.
+        /// Takes <see cref="RealPingSamples"/> attempts so jitter and loss can be
+        /// derived, and reports the median rather than the fastest sample: the
+        /// minimum flatters a link whose other attempts time out.
+        /// </summary>
+        public static async Task<int> GetRealPingTime(IWebProxy? webProxy, CancellationToken cancellationToken = default)
+            => (await GetRealPingQuality(webProxy, RealPingSamples, cancellationToken)).Median;
 
-            List<int> oneTime = [];
-            for (var i = 0; i < 2; i++)
+        /// <summary>Attempts per real-ping run; enough to see jitter without stalling a bulk scan.</summary>
+        public const int RealPingSamples = 5;
+
+        /// <summary>
+        /// Runs the in-tunnel samples and reduces them to latency, jitter and loss.
+        /// </summary>
+        public static async Task<PingQuality> GetRealPingQuality(IWebProxy? webProxy, int samples, CancellationToken cancellationToken = default)
+        {
+            var url = AppManager.Instance.Config.SpeedTestItem.SpeedPingTestUrl;
+            var timings = new List<int>(Math.Max(samples, 1));
+            try
             {
-                var timer = Stopwatch.StartNew();
-                await client.GetAsync(url, linkedToken).ConfigureAwait(false);
-                timer.Stop();
-                oneTime.Add((int)timer.Elapsed.TotalMilliseconds);
-                await Task.Delay(100, linkedToken);
+                using var timeoutCts = new CancellationTokenSource();
+                timeoutCts.CancelAfter(Global.LocalFetch);
+                using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
+                var linkedToken = linkedCts.Token;
+                using var client = new HttpClient(new SocketsHttpHandler()
+                {
+                    Proxy = webProxy,
+                    UseProxy = webProxy != null,
+                    ConnectTimeout = Global.LocalFetch,
+                });
+
+                var attempts = Math.Max(samples, 1);
+                for (var i = 0; i < attempts; i++)
+                {
+                    var timer = Stopwatch.StartNew();
+                    try
+                    {
+                        await client.GetAsync(url, linkedToken).ConfigureAwait(false);
+                        timer.Stop();
+                        timings.Add((int)timer.Elapsed.TotalMilliseconds);
+                    }
+                    catch
+                    {
+                        // A failed attempt is data, not an error: it is what the loss
+                        // percentage is counting. Only an outright cancellation stops
+                        // the run.
+                        if (linkedToken.IsCancellationRequested && cancellationToken.IsCancellationRequested)
+                        {
+                            throw;
+                        }
+                        timings.Add(-1);
+                    }
+                    await Task.Delay(100, linkedToken);
+                }
             }
-            responseTime = oneTime.Where(x => x > 0).OrderBy(x => x).FirstOrDefault();
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch
+            {
+                // Ignore
+            }
+            return PingQuality.FromSamples(timings);
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
-        }
-        catch
-        {
-            // Ignore
-        }
-        return responseTime;
-    }
 
     /// <summary>
     /// Gets IP and country information through specified proxy.

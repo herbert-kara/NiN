@@ -1,4 +1,4 @@
-﻿namespace ServiceLib.ViewModels;
+namespace ServiceLib.ViewModels;
 
 public partial class ProfilesViewModel : MyReactiveObject
 {
@@ -501,6 +501,9 @@ public partial class ProfilesViewModel : MyReactiveObject
                         DelayVal = t33?.Delay != 0 ? $"{t33?.Delay}" : string.Empty,
                         SpeedVal = t33?.Speed > 0 ? $"{t33?.Speed}" : t33?.Message ?? string.Empty,
                         IpInfo = t33?.IpInfo ?? string.Empty,
+                        Jitter = t33?.Jitter ?? -1,
+                        QualityScore = t33?.QualityScore ?? 0,
+                        LossVal = t33 == null ? -1 : (int)Math.Round((t33.PacketLoss * 100)),
                         TodayDown = t22 == null ? "" : Utils.HumanFy(t22.TodayDown),
                         TodayUp = t22 == null ? "" : Utils.HumanFy(t22.TodayUp),
                         TotalDown = t22 == null ? "" : Utils.HumanFy(t22.TotalDown),
