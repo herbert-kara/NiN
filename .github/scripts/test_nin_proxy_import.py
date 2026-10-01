@@ -140,3 +140,71 @@ class ProxyOutboundImportTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+class NiNProxyArrayImportTests(unittest.TestCase):
+    """A subscription may return an array of complete Xray configs, not share links.
+
+    Each element carries its own `outbounds`, so the resolver must walk the whole
+    array. If it ever returns only the first entry, every real user of such a
+    subscription silently gets a single node -- which is exactly the bug reported.
+    """
+
+    def test_resolver_walks_every_array_element(self):
+        src = (REPO / "v2rayN/ServiceLib/Handler/Fmt/ProxyOutboundFmt.cs").read_text(
+            encoding="utf-8-sig")
+        self.assertIn("if (jsonNode is JsonArray array)", src)
+        body = src.split("if (jsonNode is JsonArray array)", 1)[1].split("return result;", 1)[0]
+        self.assertIn("foreach", body, "the array branch must iterate")
+        self.assertIn("ResolveCommon(item, subRemarks)", body,
+                      "each array element must be resolved, not just the first")
+
+    def test_array_of_full_configs_is_tested(self):
+        """Pin the multi-config shape so a regression is caught by CI, not a user."""
+        tests = (REPO / "v2rayN/ServiceLib.Tests/Handler/ProxyOutboundFmtTests.cs").read_text(
+            encoding="utf-8-sig")
+        self.assertIn("ArrayOfFullConfigs_YieldsEveryNode", tests)
+        # It must assert more than one entry survives, otherwise the test is vacuous.
+        m = re.search(
+            r"ArrayOfFullConfigs_YieldsEveryNode.*?list\.Count\.Should\(\)\.BeEqualTo\((\d+)\)",
+            tests, re.S)
+        self.assertIsNotNone(m, "the array test must assert an exact profile count")
+        self.assertGreaterEqual(int(m.group(1)), 6,
+                                "expected several nodes from a small array fixture")
+
+    def test_plumbing_is_still_excluded(self):
+        src = (REPO / "v2rayN/ServiceLib/Handler/Fmt/ProxyOutboundFmt.cs").read_text(
+            encoding="utf-8-sig")
+        for proto in ("freedom", "blackhole", "dns", "loopback"):
+            self.assertIn(proto, src, f"{proto} must stay excluded as a plumbing outbound")
+
+class NiNImportReachabilityTests(unittest.TestCase):
+    """`AddBatchServers4Custom` is the only route into the structured resolver.
+
+    It runs last and only when every earlier parser returned 0. Any earlier parser
+    that returns >=1 stops the cascade, so a payload shape that partially parses
+    anywhere earlier silently never reaches ProxyOutboundFmt. Pin the ordering.
+    """
+
+    CONFIG_HANDLER = REPO / "v2rayN/ServiceLib/Handler/ConfigHandler.cs"
+
+    def test_custom_path_runs_after_the_line_parsers(self):
+        src = self.CONFIG_HANDLER.read_text(encoding="utf-8-sig")
+        i_common = src.index("AddBatchServersCommon(config, strData, subid, isSub)")
+        i_custom = src.index("AddBatchServers4Custom(config, strData, subid, isSub)")
+        self.assertLess(i_common, i_custom,
+                        "the structured resolver must stay reachable from the cascade")
+
+    def test_resolver_is_wired_before_the_custom_fallbacks(self):
+        src = self.CONFIG_HANDLER.read_text(encoding="utf-8-sig")
+        i_new = src.index("ProxyOutboundFmt.Resolve(strData, subRemarks)")
+        i_v2ray = src.index("V2rayFmt.ResolveToCustom(strData, subRemarks)")
+        self.assertLess(i_new, i_v2ray,
+                        "ProxyOutboundFmt must win over the Custom fallbacks")
+
+    def test_resolver_takes_precedence_over_the_generic_fallback(self):
+        src = self.CONFIG_HANDLER.read_text(encoding="utf-8-sig")
+        i_new = src.index("ProxyOutboundFmt.Resolve(strData, subRemarks)")
+        i_fallback = src.index("ResolveToCustomOutbound(strData, subRemarks)")
+        self.assertLess(i_new, i_fallback,
+                        "ProxyOutboundFmt must run before ResolveToCustomOutbound too")
+

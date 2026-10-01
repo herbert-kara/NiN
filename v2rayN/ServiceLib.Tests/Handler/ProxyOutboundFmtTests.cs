@@ -197,4 +197,62 @@ public class ProxyOutboundFmtTests
             await x.IsValid().Should().BeTrue();
         }
     }
+
+    [Test]
+    public async Task ArrayOfFullConfigs_YieldsEveryNode()
+    {
+        // A subscription that returns several complete Xray configs, each carrying
+        // its own outbounds. Every entry must produce a profile, not just the
+        // first one -- this mirrors what real subs actually return.
+        string Config(int i) => $$"""
+        {
+          "remarks": "node {{i}}",
+          "inbounds": [{ "port": 10808, "protocol": "socks", "settings": {} }],
+          "outbounds": [
+            {
+              "tag": "proxy", "protocol": "vless",
+              "settings": { "vnext": [{
+                  "address": "a{{i}}.example.com", "port": 443,
+                  "users": [{ "id": "uuid-{{i}}", "encryption": "none" }] }] },
+              "streamSettings": {
+                  "network": "ws", "security": "tls",
+                  "wsSettings": { "path": "/p{{i}}", "headers": { "Host": "h{{i}}.example.com" } } }
+            },
+            {
+              "tag": "t", "protocol": "trojan",
+              "settings": { "servers": [{
+                  "address": "t{{i}}.example.com", "port": 443,
+                  "password": "pw-{{i}}" }] },
+              "streamSettings": { "network": "grpc", "security": "tls" }
+            },
+            { "tag": "direct", "protocol": "freedom", "settings": {} },
+            { "tag": "block", "protocol": "blackhole", "settings": {} },
+            { "tag": "dns-out", "protocol": "dns", "settings": {} }
+          ]
+        }
+        """;
+
+        var json = $"[{Config(1)},{Config(2)},{Config(3)}]";
+        var list = await ProxyOutboundFmt.Resolve(json, "sub");
+
+        await list.Count.Should().BeEqualTo(6);
+
+        var vless = list.Where(x => x.ConfigType == EConfigType.VLESS).ToList();
+        var trojan = list.Where(x => x.ConfigType == EConfigType.Trojan).ToList();
+        await vless.Count.Should().BeEqualTo(3);
+        await trojan.Count.Should().BeEqualTo(3);
+
+        // Every node keeps its own address, credentials and transport.
+        await vless.Select(x => x.Address).Distinct().Count().Should().BeEqualTo(3);
+        await vless.Select(x => x.Id).Distinct().Count().Should().BeEqualTo(3);
+        await trojan.Select(x => x.Address).Distinct().Count().Should().BeEqualTo(3);
+
+        // Remarks come from the owning config, so each group is labelled.
+        await vless.Select(x => x.Remarks).Distinct().Count().Should().BeEqualTo(3);
+
+        // ws / grpc transport survives per node.
+        await vless.Select(x => x.StreamSettings).Distinct().Count().Should().BeEqualTo(3);
+        await vless[0].Path.Should().BeEqualTo("/p1");
+        await vless[1].Path.Should().BeEqualTo("/p2");
+    }
 }

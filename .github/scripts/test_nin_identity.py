@@ -1,7 +1,11 @@
-﻿"""User-visible identity and decoded tray palette regression checks."""
+"""User-visible identity and decoded tray palette regression checks."""
 import unittest
 from pathlib import Path
-from PIL import Image
+
+try:
+    from PIL import Image
+except ModuleNotFoundError:  # Pillow is installed in CI, not necessarily locally
+    Image = None
 
 ROOT = Path(__file__).resolve().parents[2]
 COLORS = [(51, 153, 204), (147, 51, 234), (220, 38, 38), (22, 128, 61)]
@@ -42,6 +46,7 @@ class NiNIdentityTests(unittest.TestCase):
         self.assertIn('"No complete NiN release available"', update)
         self.assertIn('NiNRelease.SelectTag', update)
 
+    @unittest.skipIf(Image is None, "Pillow not installed")
     def test_tray_colors_visible_at_all_icon_sizes(self):
         for folder in ['v2rayN/v2rayN/Resources', 'v2rayN/v2rayN.Desktop/Assets']:
             for number, rgb in enumerate(COLORS, 1):

@@ -2171,6 +2171,9 @@ public static class ConfigHandler
         }
 
         //maybe other sub
+        // A subscription may return a multi-line full-Xray config or an array of
+        // complete configs. The line-oriented parsers above all fail on that shape,
+        // so make sure the structured resolver below is actually reached.
         if (counter < 1)
         {
             counter = await AddBatchServers4Custom(config, strData, subid, isSub);
