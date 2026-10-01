@@ -1758,8 +1758,14 @@ public static class ConfigHandler
         SubItem? subItem)
     {
         var subRemarks = subItem?.Remarks;
-        // Prioritize using complete custom parsing, followed by custom outbound parsing.
-        var lstProfiles = V2rayFmt.ResolveToCustom(strData, subRemarks);
+        // A payload of full Xray configs holds one real proxy per entry, so pull
+        // that outbound out as a normal, testable profile. Falls through to the
+        // Custom paths below when nothing in the payload is a proxy outbound.
+        var lstProfiles = ProxyOutboundFmt.Resolve(strData, subRemarks);
+        if (lstProfiles.Count == 0)
+        {
+            lstProfiles = V2rayFmt.ResolveToCustom(strData, subRemarks);
+        }
         if (lstProfiles.Count == 0)
         {
             lstProfiles = SingboxFmt.ResolveToCustom(strData, subRemarks);

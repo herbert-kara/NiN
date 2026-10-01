@@ -14,6 +14,8 @@ from pathlib import Path
 WATCHED = [
     "v2rayN/ServiceLib/Common/NiNRelease.cs",
     "v2rayN/ServiceLib/Common/ProfileCountry.cs",
+    "v2rayN/ServiceLib/Handler/Fmt/ProxyOutboundFmt.cs",
+    "v2rayN/ServiceLib.Tests/Handler/ProxyOutboundFmtTests.cs",
     "v2rayN/ServiceLib/Global.cs",
     "v2rayN/ServiceLib/Manager/ProfileExManager.cs",
     "v2rayN/ServiceLib/Models/Dto/PingQuality.cs",
