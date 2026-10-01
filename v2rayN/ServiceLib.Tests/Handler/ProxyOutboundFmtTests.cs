@@ -244,7 +244,10 @@ public class ProxyOutboundFmtTests
 
         // Every node keeps its own address, credentials and transport.
         await vless.Select(x => x.Address).Distinct().Count().Should().BeEqualTo(3);
-        await vless.Select(x => x.Id).Distinct().Count().Should().BeEqualTo(3);
+        // VLESS stores the uuid in Password; ProfileItem.Id is a deprecated alias.
+        await vless.Select(x => x.Password).Distinct().Count().Should().BeEqualTo(3);
+        await vless[0].Password.Should().BeEqualTo("uuid-1");
+        await vless[2].Password.Should().BeEqualTo("uuid-3");
         await trojan.Select(x => x.Address).Distinct().Count().Should().BeEqualTo(3);
 
         // Remarks come from the owning config, so each group is labelled.

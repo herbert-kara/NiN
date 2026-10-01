@@ -80,6 +80,13 @@ class ProfileItemMemberTests(unittest.TestCase):
                     name = m.group(1)
                     if name in linq:
                         continue
+                    # Id is an obsolete alias that does not hold what callers expect
+                    # (the uuid lives in Password); keep tests off it.
+                    if name == "Id":
+                        self.fail(
+                            f"{path.name}:{i} reads .Id, which is a deprecated alias; "
+                            "use the field that actually holds the credential"
+                        )
                     if name not in PROFILE_ITEM_PROPS:
                         self.fail(
                             f"{path.name}:{i} reads .{name} off a ProfileItem, which is "
