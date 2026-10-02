@@ -1,0 +1,15 @@
+
+v2rayN/AmazTool/Resx/Resource.Designer.cs
+v2rayN/AmazTool/Resx/Resource.resx
+v2rayN/ServiceLib.Tests/Services/ServerFlaggedServiceTests.cs
+v2rayN/ServiceLib/Enums/EServerColName.cs
+v2rayN/ServiceLib/Global.cs
+v2rayN/ServiceLib/Manager/CoreInfoManager.cs
+v2rayN/ServiceLib/Models/Dto/SemanticVersion.cs
+v2rayN/ServiceLib/Resx/ResUI.Designer.cs
+v2rayN/ServiceLib/Services/UpdateService.cs
+v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs
+v2rayN/v2rayN/Base/MyDGFlagColumn.cs
+v2rayN/v2rayN/Manager/WindowsManager.cs
+v2rayN/v2rayN/Properties/Resources.Designer.cs
+v2rayN/v2rayN/Properties/Resources.resx

@@ -24,9 +24,36 @@ def tracked_sources():
     return [ROOT / r for r in rels]
 
 
+MANIFEST = ROOT / ".github/scripts/nin_bom_manifest.txt"
+
+
+def manifest():
+    """The committed list of files that carry a BOM.
+
+    Comparing against a historical commit looked clever but was fragile: the
+    answer depended on that commit being reachable, and it disagreed between a
+    local checkout and CI. A checked-in manifest is explicit and stable.
+    """
+    if not MANIFEST.exists():
+        return set()
+    return {ln.strip() for ln in MANIFEST.read_text(encoding="utf-8").splitlines()
+            if ln.strip() and not ln.startswith("#")}
+
+
+def write_manifest():
+    """Regenerate from the current tree. Run this only as a deliberate action."""
+    lines = ["# Files that carry a UTF-8 BOM. Regenerate with:",
+             "#   python .github/scripts/test_nin_encoding.py --write",
+             "# Editing this file by hand will silently change what the guard accepts.",
+             ""]
+    for path in tracked_sources():
+        if path.read_bytes()[:3] == BOM:
+            lines.append(path.relative_to(ROOT).as_posix())
+    MANIFEST.write_text("\n".join(sorted(lines[3:])) + "\n", encoding="utf-8")
+
+
 def had_bom_at(rel):
-    r = subprocess.run(["git", "show", f"{BASELINE}:{rel}"], cwd=ROOT, capture_output=True)
-    return r.returncode == 0 and r.stdout[:3] == BOM
+    return rel in manifest()
 
 
 class NiNEncodingTests(unittest.TestCase):
@@ -73,3 +100,12 @@ class NiNEncodingTests(unittest.TestCase):
         self.assertEqual(designer.read_bytes()[:3], BOM,
                          "ResUI.Designer.cs is a generated file; regenerating or "
                          "rewriting it without the BOM breaks every resx lookup")
+
+
+if __name__ == "__main__":
+    import sys
+    if "--write" in sys.argv:
+        write_manifest()
+        print(f"wrote {len(manifest())} entries to {MANIFEST.relative_to(ROOT)}")
+    else:
+        unittest.main()
