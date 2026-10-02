@@ -41,11 +41,16 @@ public partial class ProfileItemModel : ReactiveObject
     [Reactive]
     public partial int Jitter { get; set; }
 
-    /// <summary>Score as shown in the grid: empty until a quality run happens.</summary>
-    public string QualityScoreText => QualityScore > 0 ? QualityScore.ToString() : string.Empty;
+    // Shown as an em dash rather than a blank cell: an empty column reads as a
+    // broken feature, while a dash reads as "not measured yet", which is true.
+    // Only a real-ping run produces these two; a plain delay test cannot.
+    private const string NotMeasured = "\u2014";
 
-    /// <summary>Jitter as shown in the grid: empty until a quality run happens.</summary>
-    public string JitterText => Jitter >= 0 ? Jitter.ToString() : string.Empty;
+    /// <summary>Score as shown in the grid; dash until a quality run happens.</summary>
+    public string QualityScoreText => QualityScore > 0 ? QualityScore.ToString() : NotMeasured;
+
+    /// <summary>Jitter as shown in the grid; dash until a quality run happens.</summary>
+    public string JitterText => Jitter >= 0 ? Jitter.ToString() : NotMeasured;
 
     [Reactive]
     public partial int QualityScore { get; set; }

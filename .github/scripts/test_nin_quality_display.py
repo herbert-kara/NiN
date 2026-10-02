@@ -26,11 +26,16 @@ class NiNQualityDisplayTests(unittest.TestCase):
         src = MODEL.read_text(encoding="utf-8-sig")
         self.assertIn("QualityScoreText", src)
         self.assertIn("JitterText", src)
-        # Unmeasured jitter (-1) must render empty, never as a raw -1.
+        # Unmeasured jitter (-1) must never be rendered as a raw -1.
         m = re.search(r"JitterText\s*=>\s*Jitter\s*>=\s*0\s*\?", src)
         self.assertIsNotNone(m, "JitterText must hide the -1 sentinel")
         self.assertIn("QualityScore > 0", src,
                       "QualityScoreText must hide an unmeasured score of 0")
+        # A blank cell reads as a broken feature; a dash reads as "not measured".
+        self.assertIn("NotMeasured", src,
+                      "unmeasured quality cells should show a placeholder, not nothing")
+        self.assertNotIn("string.Empty", m.group(0) if m else "x",
+                         "the placeholder constant must be used for jitter too")
 
     def test_wpf_cells_bind_display_strings(self):
         src = WPF.read_text(encoding="utf-8-sig")

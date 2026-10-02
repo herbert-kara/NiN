@@ -37,7 +37,7 @@ jobs:
       - name: C# syntax pre-flight
         run: python .github/scripts/nin_cs_syntax.py
       - name: Automation unit tests
-        run: python -B -m unittest discover -s .github/scripts -p 'test_nin_guard.py'
+        run: python -B -m unittest discover -s .github/scripts -p 'test_nin*.py' -v
       - name: Tray palette tests
         run: |
           python -m pip install Pillow==12.1.1
