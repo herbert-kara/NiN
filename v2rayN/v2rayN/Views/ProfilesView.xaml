@@ -146,6 +146,11 @@
                             Height="{StaticResource MenuItemHeight}"
                             Header="{x:Static resx:ResUI.menuCopyServer}" />
                         <MenuItem
+                            x:Name="menuAddFoxyVpn"
+                            Height="{StaticResource MenuItemHeight}"
+                            Header="{x:Static resx:ResUI.menuAddFoxyVpn}" />
+                        <Separator />
+                        <MenuItem
                             x:Name="menuRemoveServer"
                             Height="{StaticResource MenuItemHeight}"
                             Header="{x:Static resx:ResUI.menuRemoveServer}"

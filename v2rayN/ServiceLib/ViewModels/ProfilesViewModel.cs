@@ -57,6 +57,8 @@ public partial class ProfilesViewModel : MyReactiveObject
     public ReactiveCommand<RxVoid, RxVoid> GenGroupAllServerCmd { get; }
     public ReactiveCommand<RxVoid, RxVoid> GenGroupRegionServerCmd { get; }
 
+    public ReactiveCommand<RxVoid, RxVoid> AddFoxyVpnCmd { get; }
+
     //servers move
     public ReactiveCommand<RxVoid, RxVoid> MoveTopCmd { get; }
 
@@ -147,6 +149,10 @@ public partial class ProfilesViewModel : MyReactiveObject
         {
             await GenGroupRegionServer();
         }, canEditRemove);
+        AddFoxyVpnCmd = ReactiveCommand.CreateFromTask(async () =>
+        {
+            await AddFoxyVpnAsync();
+        });
 
         //servers move
         MoveTopCmd = ReactiveCommand.CreateFromTask(async () =>
@@ -353,6 +359,78 @@ public partial class ProfilesViewModel : MyReactiveObject
         {
             await RefreshServers();
         }
+    }
+
+    private const string FoxyVpnRemarks = "Firefox VPN (local SOCKS)";
+
+    // Next to NiN.exe first; the dev checkout path is only a convenience.
+    private static readonly string[] FoxyVpnCandidates =
+    [
+        Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "FoxyVPN.exe"),
+        @"Z:\hermes\work\foxywin\dist\FoxyVPN.exe",
+    ];
+
+    /// <summary>
+    /// Start FoxyVPN and register its local SOCKS5 port as a profile.
+    /// FoxyVPN owns the Firefox-account sign-in and the tunnel; NiN only needs
+    /// an outbound to 127.0.0.1, so the whole VPN stays one click away.
+    /// </summary>
+    private async Task AddFoxyVpnAsync()
+    {
+        var exe = FoxyVpnCandidates.FirstOrDefault(File.Exists);
+        if (exe is null)
+        {
+            NoticeManager.Instance.Enqueue(ResUI.foxyVpnNotFound);
+            return;
+        }
+
+        var existing = await AppManager.Instance.GetProfileItemViaRemarks(FoxyVpnRemarks);
+        var port = existing is { Port: > 0 and <= 65535 } ? existing.Port : 1080;
+
+        try
+        {
+            Process.Start(new ProcessStartInfo(exe) { UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            NoticeManager.Instance.Enqueue($"{ResUI.foxyVpnNotFound} {ex.Message}");
+            return;
+        }
+
+        if (await WaitForPortAsync(port, 30) == false)
+        {
+            NoticeManager.Instance.Enqueue(ResUI.foxyVpnPortNotOpen);
+            return;
+        }
+
+        var item = existing ?? new ProfileItem { ConfigType = EConfigType.SOCKS };
+        item.Remarks = FoxyVpnRemarks;
+        item.Address = "127.0.0.1";
+        item.Port = port;
+        if (await ConfigHandler.AddServer(_config, item) == 0)
+        {
+            NoticeManager.Instance.Enqueue(ResUI.OperationSuccess);
+            await RefreshServers();
+        }
+    }
+
+    private static async Task<bool> WaitForPortAsync(int port, int timeoutSeconds)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
+        while (DateTime.UtcNow < deadline)
+        {
+            try
+            {
+                using var probe = new TcpClient();
+                await probe.ConnectAsync(IPAddress.Loopback, port);
+                return true;
+            }
+            catch (Exception)
+            {
+                await Task.Delay(500);
+            }
+        }
+        return false;
     }
 
     public async Task RefreshServers()
