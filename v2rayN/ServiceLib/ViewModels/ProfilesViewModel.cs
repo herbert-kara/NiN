@@ -105,6 +105,18 @@ public partial class ProfilesViewModel : MyReactiveObject
            x => x.SelectedProfile,
            selectedSource => selectedSource != null && !selectedSource.IndexId.IsNullOrEmpty());
 
+        // The blue highlight marks the active connection. It was only ever computed
+        // when the list was rebuilt from the config, so it sat on the old row until
+        // the app restarted even though the traffic really had moved.
+        this.WhenAnyValue(x => x.SelectedProfile)
+            .Subscribe(item =>
+            {
+                foreach (var row in ProfileItems)
+                {
+                    row.IsActive = item != null && row.IndexId == item.IndexId;
+                }
+            });
+
         this.WhenAnyValue(x => x.SelectedSub)
             .Where(y => y != null && !y.Remarks.IsNullOrEmpty() && _config.SubIndexId != y.Id)
             .SubscribeAsync(async _ => await SubSelectedChangedAsync());

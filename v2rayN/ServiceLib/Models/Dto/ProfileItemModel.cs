@@ -3,7 +3,10 @@ namespace ServiceLib.Models.Dto;
 [Serializable]
 public partial class ProfileItemModel : ReactiveObject
 {
-    public bool IsActive { get; set; }
+    // Reactive: the grid highlights this row, and the highlight has to follow the
+    // active connection when it changes, not only when the list is rebuilt.
+    [Reactive]
+    public partial bool IsActive { get; set; }
     public string IndexId { get; set; }
     public EConfigType ConfigType { get; set; }
     private string _remarks;
