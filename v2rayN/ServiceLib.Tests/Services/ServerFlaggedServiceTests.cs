@@ -227,19 +227,25 @@ public class ServerFlaggedServiceTests
     }
 
     [Test]
-    public async Task ResolveAsync_SequentialRequests_AreSpacedAtLeast1100ms()
+    public async Task ResolveAsync_ManyConfigs_DoNotSerialiseBehindTheGap()
     {
-        var http = new FakeHttp(
-            ("8.8.8.8", """{"status":"ok","8.8.8.8":{"risk":0,"proxy":"no"}}"""),
-            ("1.1.1.1", """{"status":"ok","1.1.1.1":{"risk":0,"proxy":"no"}}"""),
-            ("4.4.4.4", """{"status":"ok","4.4.4.4":{"risk":0,"proxy":"no"}}"""));
+        // A one-slot gate with a second between requests made a 190-config
+        // subscription take three and a half minutes, which read as a hung UI.
+        // Requests may overlap; only a small courtesy gap remains.
+        const int Count = 40;
+        var responses = Enumerable.Range(0, Count)
+            .Select(i => ($"{11 + i}.1.1.1", $$"""{"status":"ok","{{11 + i}}.1.1.1":{"risk":0,"proxy":"no"}}"""))
+            .ToArray();
+        var http = new FakeHttp(responses);
         var service = CreateService(http: http);
+
         var stopwatch = Stopwatch.StartNew();
-        await service.ResolveAsync("8.8.8.8");
-        await service.ResolveAsync("1.1.1.1");
-        await service.ResolveAsync("4.4.4.4");
+        var tasks = Enumerable.Range(0, Count).Select(i => service.ResolveAsync($"{11 + i}.1.1.1")).ToList();
+        await Task.WhenAll(tasks);
         stopwatch.Stop();
-        await (stopwatch.ElapsedMilliseconds >= 2200).Should().BeTrue();
+
+        await (stopwatch.ElapsedMilliseconds < 3000).Should().BeTrue();
+        await http.CallCount.Should().BeEqualTo(Count);
     }
 
     [Test]
