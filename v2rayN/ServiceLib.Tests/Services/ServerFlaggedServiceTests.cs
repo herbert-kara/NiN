@@ -233,8 +233,9 @@ public class ServerFlaggedServiceTests
         // subscription take three and a half minutes, which read as a hung UI.
         // Requests may overlap; only a small courtesy gap remains.
         const int Count = 40;
+        static string Ok(string ip) => "{\"status\":\"ok\",\"" + ip + "\":{\"risk\":0,\"proxy\":\"no\"}}";
         var responses = Enumerable.Range(0, Count)
-            .Select(i => ($"{11 + i}.1.1.1", $$"""{"status":"ok","{{11 + i}}.1.1.1":{"risk":0,"proxy":"no"}}"""))
+            .Select(i => ($"{11 + i}.1.1.1", Ok($"{11 + i}.1.1.1")))
             .ToArray();
         var http = new FakeHttp(responses);
         var service = CreateService(http: http);
