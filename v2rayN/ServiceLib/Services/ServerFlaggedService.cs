@@ -40,7 +40,11 @@ public sealed class ServerFlaggedService
     private static readonly TimeSpan SuccessTtl = TimeSpan.FromHours(24);
     private static readonly TimeSpan FailureTtl = TimeSpan.FromMinutes(5);
     private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(10);
-    private static readonly TimeSpan RequestGap = TimeSpan.FromMilliseconds(1100);
+    // proxycheck.io's free plan allows 1000 queries/minute, so a 1100 ms gap --
+    // one request at a time -- throttled us to 54/minute and made a 190-config
+    // subscription take three and a half minutes to decorate. Keep the courtesy
+    // gap but let requests overlap, which is what the provider actually permits.
+    private static readonly TimeSpan RequestGap = TimeSpan.FromMilliseconds(20);
     private const int MaxCacheEntries = 512;
 
     /// <summary>proxycheck.io scores 0-100; above this we report Flagged even without an explicit proxy flag.</summary>
@@ -52,7 +56,10 @@ public sealed class ServerFlaggedService
     private readonly object _gate = new();
     private readonly ConcurrentDictionary<string, Entry> _cache = new(StringComparer.OrdinalIgnoreCase);
     private readonly ConcurrentDictionary<string, Lazy<Task<FlagVerdict?>>> _inFlight = new(StringComparer.OrdinalIgnoreCase);
-    private readonly SemaphoreSlim _httpGate = new(1, 1);
+    // 50 in flight keeps us near 1000/minute at RequestGap, under the free limit.
+    // ponytail: no adaptive throttle; if proxycheck tightens its quota the gate
+    // is the one number to lower, and nothing else needs to move.
+    private readonly SemaphoreSlim _httpGate = new(50, 50);
     private long _lastRequestTicks;
 
     public ServerFlaggedService(Func<string, CancellationToken, Task<string>>? sendHttp = null, Func<string?, CancellationToken, Task<IPAddress[]>>? resolveDns = null)
@@ -158,9 +165,11 @@ public sealed class ServerFlaggedService
         await _httpGate.WaitAsync(cancellationToken);
         try
         {
+            // Small gap between starts: enough to stay well clear of the provider's
+            // rate limit while letting the 50-slot gate do the real throttling.
             var elapsed = _lastRequestTicks == 0 ? RequestGap : Stopwatch.GetElapsedTime(_lastRequestTicks);
             if (elapsed < RequestGap) await Task.Delay(RequestGap - elapsed, cancellationToken);
-            _lastRequestTicks = Stopwatch.GetTimestamp();
+            Interlocked.Exchange(ref _lastRequestTicks, Stopwatch.GetTimestamp());
             using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             timeout.CancelAfter(HttpTimeout);
             return await _sendHttp(url, timeout.Token).WaitAsync(timeout.Token);
