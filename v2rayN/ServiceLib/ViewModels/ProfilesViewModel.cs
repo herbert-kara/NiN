@@ -460,7 +460,13 @@ public partial class ProfilesViewModel : MyReactiveObject
         }
 
         await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
-        await LookupServerFlagsAsync(ProfileItems.ToList());
+
+        // Deliberately not awaited. The caller runs on the UI thread (see the
+        // Dispatcher.Invoke in ProfilesView.xaml.cs) and the lookup marshals its
+        // results back onto that same thread, so awaiting it here deadlocks: the
+        // thread waits for the lookup, the lookup waits for the thread. Flags
+        // arrive whenever they arrive and patch the live rows in place.
+        _ = LookupServerFlagsAsync(ProfileItems.ToList());
     }
 
     /// <summary>
@@ -468,6 +474,8 @@ public partial class ProfilesViewModel : MyReactiveObject
     /// result to guiLogs. Shared by the automatic pass after a refresh and by the
     /// manual "refresh flags" button, so both take the same code path.
     /// </summary>
+    private int _flagLookupPass;
+
     private async Task LookupServerFlagsAsync(List<ProfileItemModel> snapshot, bool forceRefresh = false)
     {
 
@@ -480,6 +488,11 @@ public partial class ProfilesViewModel : MyReactiveObject
         // Results are written to whichever instance is currently in ProfileItems,
         // never to the captured object: RefreshServers replaces the whole collection,
         // so a refresh landing mid-lookup used to throw the result away.
+        // Each pass stamps itself. Switching subscription group starts a new one, and
+        // the older pass sees a newer id and returns rather than querying every config
+        // of a group the user already navigated away from.
+        var pass = Interlocked.Increment(ref _flagLookupPass);
+
         await Task.Run(async () =>
         {
             var checkedCount = 0;
@@ -488,6 +501,7 @@ public partial class ProfilesViewModel : MyReactiveObject
             {
                 foreach (var item in snapshot)
                 {
+                    if (Volatile.Read(ref _flagLookupPass) != pass) return;
                     // Complex/custom configs have no single server address to check.
                     if (item.ConfigType.IsComplexType() || item.ConfigType == EConfigType.Custom) continue;
                     checkedCount++;
