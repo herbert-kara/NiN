@@ -5561,32 +5561,5 @@ namespace ServiceLib.Resx {
                 return ResourceManager.GetString("UpgradeAppNotExistTip", resourceCulture);
             }
         }
-
-        /// <summary>
-        ///   Looks up a localized string similar to Add Firefox VPN (local SOCKS).
-        /// </summary>
-        public static string menuAddFoxyVpn {
-            get {
-                return ResourceManager.GetString("menuAddFoxyVpn", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to FoxyVPN.exe not found..
-        /// </summary>
-        public static string foxyVpnNotFound {
-            get {
-                return ResourceManager.GetString("foxyVpnNotFound", resourceCulture);
-            }
-        }
-
-        /// <summary>
-        ///   Looks up a localized string similar to FoxyVPN started but its local SOCKS port did not open..
-        /// </summary>
-        public static string foxyVpnPortNotOpen {
-            get {
-                return ResourceManager.GetString("foxyVpnPortNotOpen", resourceCulture);
-            }
-        }
     }
 }

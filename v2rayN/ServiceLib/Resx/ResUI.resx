@@ -1953,13 +1953,4 @@ The "Get Certificate" action may fail if a self-signed certificate is used or if
   <data name="TipJitter" xml:space="preserve">
     <value>In-tunnel variation of the real-ping samples (p75 - p25), in milliseconds</value>
   </data>
-  <data name="menuAddFoxyVpn" xml:space="preserve">
-    <value>Add Firefox VPN (local SOCKS)</value>
-  </data>
-  <data name="foxyVpnNotFound" xml:space="preserve">
-    <value>FoxyVPN.exe not found. Put it next to NiN.exe.</value>
-  </data>
-  <data name="foxyVpnPortNotOpen" xml:space="preserve">
-    <value>FoxyVPN started but its local SOCKS port did not open. Sign in inside FoxyVPN first.</value>
-  </data>
 </root>
