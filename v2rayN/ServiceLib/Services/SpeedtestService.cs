@@ -221,10 +221,9 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
 
                     ProfileExManager.Instance.SetTestDelay(item.IndexId, responseTime);
                     // Tcping is a single connection check: it can report a latency
-                    // but it has no spread and no failures to measure. Mark the quality
-                    // fields as never measured so the grid shows them empty instead of
-                    // a misleading score of 0 / jitter of -1.
-                    ProfileExManager.Instance.SetTestQuality(item.IndexId, PingQuality.None);
+                    // but has no spread and no failures to measure, so it must not
+                    // overwrite a previous real-ping result.
+                    ProfileExManager.Instance.SetTestQuality(item.IndexId, PingQuality.None, false);
                     await UpdateFunc(item.IndexId, responseTime.ToString());
                     completedIds.TryAdd(item.IndexId, 0);
                 }
@@ -549,8 +548,9 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
         var responseTime = (int)(await udpService.SendUdpRequestAsync(udpTestUrl, it.Port, ct)).TotalMilliseconds;
 
         ProfileExManager.Instance.SetTestDelay(it.IndexId, responseTime);
-        // A single UDP round-trip cannot express stability or loss.
-        ProfileExManager.Instance.SetTestQuality(it.IndexId, PingQuality.None);
+        // A single UDP round-trip cannot express stability or loss, so it must not
+        // overwrite a previous real-ping result.
+        ProfileExManager.Instance.SetTestQuality(it.IndexId, PingQuality.None, false);
         await UpdateFunc(it.IndexId, responseTime.ToString());
         completedIds.TryAdd(it.IndexId, 0);
         return responseTime;

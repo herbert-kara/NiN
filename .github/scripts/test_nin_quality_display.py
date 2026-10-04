@@ -50,6 +50,35 @@ class NiNQualityDisplayTests(unittest.TestCase):
         self.assertIn('Text="{Binding QualityScoreText}"', src)
         self.assertIn('Text="{Binding JitterText}"', src)
 
+    def test_delay_only_tests_must_not_overwrite_a_real_measurement(self):
+        """A plain delay or UDP probe has no jitter/loss, so it must not clobber.
+
+        Passing PingQuality.None with the default isMeasured=true blanked the score
+        and jitter every time the user ran the wrong test, which reads as the whole
+        quality feature being broken.
+        """
+        src = SPEEDTEST.read_text(encoding="utf-8-sig")
+        bare = re.findall(r"SetTestQuality\([^;]*PingQuality\.None\);", src)
+        self.assertEqual(
+            bare, [],
+            "PingQuality.None must be passed with isMeasured: false; without it a "
+            f"delay-only test overwrites the last real-ping result: {bare}",
+        )
+        # The real-ping call must stay authoritative (isMeasured defaults to true).
+        measured = re.findall(r"SetTestQuality\(\s*(?:it|item)\.IndexId,\s*quality\s*\)", src)
+        self.assertTrue(measured, "the real-ping call must still record its measurement")
+
+    def test_set_test_quality_can_be_told_the_result_is_not_a_measurement(self):
+        mgr = (ROOT / "v2rayN/ServiceLib/Manager/ProfileExManager.cs").read_text(
+            encoding="utf-8-sig")
+        self.assertRegex(
+            mgr,
+            r"SetTestQuality\(string indexId, PingQuality quality, bool isMeasured = true\)",
+            "SetTestQuality needs an isMeasured flag so callers can decline to write",
+        )
+        self.assertIn("if (isMeasured)", mgr,
+                      "an unmeasured result must not overwrite the stored fields")
+
     def test_every_delay_only_path_marks_quality_unmeasured(self):
         """Any test that writes a delay without a quality must say 'unmeasured'.
 

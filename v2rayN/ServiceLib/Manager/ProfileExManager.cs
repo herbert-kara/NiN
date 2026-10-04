@@ -157,13 +157,28 @@ public class ProfileExManager
     }
 
     /// <summary>Stores the in-tunnel quality of the last real-ping run for this config.</summary>
-    public void SetTestQuality(string indexId, PingQuality quality)
+    /// <param name="quality">The measurement, or None when the test could not produce one.</param>
+    /// <param name="isMeasured">
+    /// False for a test that has no spread or loss to report -- a plain delay or UDP
+    /// probe. Those must not overwrite a previous real-ping result, otherwise running
+    /// the wrong test silently blanks the quality columns.
+    /// </param>
+    public void SetTestQuality(string indexId, PingQuality quality, bool isMeasured = true)
     {
         var profileEx = GetProfileExItem(indexId);
 
-        profileEx.Jitter = quality.Median < 0 ? -1 : quality.Jitter;
-        profileEx.PacketLoss = quality.Loss;
-        profileEx.QualityScore = quality.Score;
+        if (isMeasured)
+        {
+            profileEx.Jitter = quality.Median < 0 ? -1 : quality.Jitter;
+            profileEx.PacketLoss = quality.Loss;
+            profileEx.QualityScore = quality.Score;
+        }
+        else if (profileEx.QualityScore == 0)
+        {
+            // Nothing better on record yet: record the miss so the column reads
+            // "not measured" instead of a misleading zero.
+            profileEx.Jitter = -1;
+        }
         IndexIdEnqueue(indexId);
     }
 

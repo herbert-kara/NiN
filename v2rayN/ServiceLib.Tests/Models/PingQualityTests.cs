@@ -175,4 +175,37 @@ public class PingQualityTests
         await steady.Jitter.Should().BeEqualTo(0);
         await PingQuality.None.Median.Should().BeEqualTo(-1);
     }
+
+
+    [Test]
+    public async Task SetTestQuality_UnmeasuredTest_KeepsAPreviousResult()
+    {
+        // Running the plain delay test after a real ping used to blank the score and
+        // jitter, which reads as "the quality feature does not work".
+        var indexId = "quality-not-clobbered";
+        ProfileExManager.Instance.SetTestQuality(indexId, PingQuality.FromSamples([120, 130, 125, 140, 135]));
+
+        // isMeasured: false is what a delay-only or UDP probe passes.
+        ProfileExManager.Instance.SetTestQuality(indexId, PingQuality.None, false);
+
+        var stored = await ProfileExManager.Instance.GetProfileExs();
+        var row = stored.First(t => t.IndexId == indexId);
+        await (row.QualityScore > 0).Should().BeTrue();
+        await (row.Jitter >= 0).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task SetTestQuality_MeasuredTest_OverwritesThePreviousResult()
+    {
+        // The opposite must still hold: a fresh real ping is authoritative.
+        var indexId = "quality-overwritten";
+        ProfileExManager.Instance.SetTestQuality(indexId, PingQuality.FromSamples([90, 95, 92, 98, 94]));
+
+        // A genuinely bad link: half the samples fail.
+        ProfileExManager.Instance.SetTestQuality(indexId, PingQuality.FromSamples([3000, 0, 3100, 0, 3050]));
+
+        var stored = await ProfileExManager.Instance.GetProfileExs();
+        var row = stored.First(t => t.IndexId == indexId);
+        await (row.QualityScore < 50).Should().BeTrue();
+    }
 }
