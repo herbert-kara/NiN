@@ -360,13 +360,41 @@ public partial class ProfilesViewModel : MyReactiveObject
 
     #region Servers && Groups
 
+    private int _subSwitchPass;
+    private readonly SemaphoreSlim _subSwitchSemaphore = new(1, 1);
+
     private async Task SubSelectedChangedAsync()
     {
-        _config.SubIndexId = SelectedSub?.Id;
+        // A fast user can fire several subscription switches in a row; each one
+        // used to run the full list-rebuild pipeline concurrently, so the last
+        // ReplaceRange could land on a list an earlier switch had already replaced
+        // and the UI showed a sub highlight that no longer matched the rows.
+        // One switch at a time, newest wins, older passes abandoned.
+        var pass = Interlocked.Increment(ref _subSwitchPass);
 
-        await RefreshServers();
+        await _subSwitchSemaphore.WaitAsync();
+        try
+        {
+            if (Volatile.Read(ref _subSwitchPass) != pass)
+            {
+                return;
+            }
 
-        await ProfilesFocusInteraction.HandleSafe(RxVoid.Default);
+            _config.SubIndexId = SelectedSub?.Id;
+
+            await RefreshServers();
+
+            if (Volatile.Read(ref _subSwitchPass) != pass)
+            {
+                return;
+            }
+
+            await ProfilesFocusInteraction.HandleSafe(RxVoid.Default);
+        }
+        finally
+        {
+            _subSwitchSemaphore.Release();
+        }
     }
 
     private async Task ServerFilterChanged()
