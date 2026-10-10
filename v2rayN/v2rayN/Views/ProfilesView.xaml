@@ -311,11 +311,11 @@
                         ExName="QualityScore"
                         SortMemberPath="QualityScore"
                         Header="{x:Static resx:ResUI.LvQualityScore}">
-                        <DataGridTextColumn.CellStyle>
+                        <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="ToolTip" Value="{x:Static resx:ResUI.TipQualityScore}" />
                             </Style>
-                        </DataGridTextColumn.CellStyle>
+                        </DataGridTextColumn.ElementStyle>
                     </base:MyDGTextColumn>
                     <base:MyDGTextColumn
                         Width="60"
@@ -323,11 +323,11 @@
                         ExName="Jitter"
                         SortMemberPath="Jitter"
                         Header="{x:Static resx:ResUI.LvJitter}">
-                        <DataGridTextColumn.CellStyle>
+                        <DataGridTextColumn.ElementStyle>
                             <Style TargetType="TextBlock">
                                 <Setter Property="ToolTip" Value="{x:Static resx:ResUI.TipJitter}" />
                             </Style>
-                        </DataGridTextColumn.CellStyle>
+                        </DataGridTextColumn.ElementStyle>
                     </base:MyDGTextColumn>
                     <base:MyDGTextColumn
                         Width="120"

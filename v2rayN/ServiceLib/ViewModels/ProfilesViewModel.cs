@@ -529,7 +529,7 @@ public partial class ProfilesViewModel : MyReactiveObject
         var subItems = await AppManager.Instance.SubItems();
         subItems.Insert(0, new SubItem { Remarks = ResUI.AllGroupServers });
 
-        SubItems.ReplaceRange(subItems);
+        SubItems.ReplaceRange((subItems ?? []).Where(t => t != null).ToList());
 
         SelectedSub = (_config.SubIndexId.IsNotEmpty()
                         ? subItems.FirstOrDefault(t => t.Id == _config.SubIndexId)
@@ -797,7 +797,7 @@ public partial class ProfilesViewModel : MyReactiveObject
             var ordered = flagAsc
                 ? ProfileItems.OrderBy(t => (int)t.FlagStatus).ThenByDescending(t => t.FlagRisk).ThenBy(t => t.Remarks).ToList()
                 : ProfileItems.OrderByDescending(t => (int)t.FlagStatus).ThenBy(t => t.FlagRisk).ThenBy(t => t.Remarks).ToList();
-            ProfileItems.ReplaceRange(ordered);
+            ProfileItems.ReplaceRange(ordered.Where(t => t != null).ToList());
             _dicHeaderSort[colName] = !flagAsc;
             return;
         }

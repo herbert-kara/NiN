@@ -161,6 +161,26 @@ class NiNSubSwitchGuardTests(unittest.TestCase):
         self.assertIn("IsNullOrEmpty()", lookup,
                       "An empty IndexId must not create a new ProfileExItem row")
 
+    def test_no_cell_style_targets_a_text_block(self):
+        # Crash log: 'TextBlock' TargetType does not match type of element 'DataGridCell'.
+        # A DataGridTextColumn.CellStyle is applied to the cell, never to the TextBlock;
+        # putting a TextBlock style there threw on every style change and killed the app.
+        for view in (ROOT / "v2rayN/v2rayN/Views").glob("*.xaml"):
+            src = view.read_text(encoding="utf-8-sig")
+            self.assertNotRegex(src, r'\.CellStyle>\s*<Style\s+TargetType="TextBlock"',
+                                f"{view.name}: a TextBlock style belongs in ElementStyle, not CellStyle")
+
+    def test_every_items_source_filters_null(self):
+        # CreateItemAutomationPeer(item) throws on a null item; sort and sub rebuilds
+        # both write straight to a ReplaceRange, so each one needs the same filter.
+        vm = VM.read_text(encoding="utf-8-sig")
+        for marker in ("public async Task RefreshServersBiz()", "public async Task RefreshSubscriptions()"):
+            self.assertIn("Where(t => t != null)", body_of(vm, marker),
+                          f"{marker} must not let a null row into the grid")
+        sort_body = body_of(vm, "public async Task SortServer(string colName)")
+        self.assertIn("Where(t => t != null)", sort_body,
+                      "The sort path must not let a null row into the grid")
+
 
 if __name__ == "__main__":
     unittest.main()
