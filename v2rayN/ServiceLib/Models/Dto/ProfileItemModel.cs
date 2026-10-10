@@ -1,4 +1,4 @@
-namespace ServiceLib.Models.Dto;
+﻿namespace ServiceLib.Models.Dto;
 
 [Serializable]
 public partial class ProfileItemModel : ReactiveObject
@@ -44,6 +44,14 @@ public partial class ProfileItemModel : ReactiveObject
     [Reactive]
     public partial int Jitter { get; set; }
 
+    // The grid binds to the *Text properties, so those must raise change
+    // notification themselves; a plain computed getter never re-renders.
+    partial void OnJitterChanged(int value)
+    {
+        this.RaisePropertyChanged(nameof(JitterText));
+        this.RaisePropertyChanged(nameof(QualityDetail));
+    }
+
     // Shown as an em dash rather than a blank cell: an empty column reads as a
     // broken feature, while a dash reads as "not measured yet", which is true.
     // Only a real-ping run produces these two; a plain delay test cannot.
@@ -57,6 +65,12 @@ public partial class ProfileItemModel : ReactiveObject
 
     [Reactive]
     public partial int QualityScore { get; set; }
+
+    partial void OnQualityScoreChanged(int value)
+    {
+        this.RaisePropertyChanged(nameof(QualityScoreText));
+        this.RaisePropertyChanged(nameof(QualityDetail));
+    }
 
     /// <summary>Loss as a whole percentage for display; -1 when never measured.</summary>
     public int LossVal { get; set; } = -1;
