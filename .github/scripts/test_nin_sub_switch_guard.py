@@ -148,6 +148,19 @@ class NiNSubSwitchGuardTests(unittest.TestCase):
         self.assertIn("SetTestQuality(it.IndexId, PingQuality.None, false)", svc,
                       "The UDP probe must not claim a measurement")
 
+    def test_no_null_row_reaches_the_grid(self):
+        # Crash log: DataGridAutomationPeer.GetChildrenCore -> ArgumentNullException("item").
+        # One null row in ProfileItems kills the app on the next layout pass.
+        src = VM.read_text(encoding="utf-8-sig")
+        body = body_of(src, "public async Task RefreshServersBiz()")
+        self.assertIn("Where(t => t != null)", body,
+                      "The grid must never receive a null row")
+        # The lookup must never mint a row with an empty IndexId either.
+        pm = (ROOT / "v2rayN/ServiceLib/Manager/ProfileExManager.cs").read_text(encoding="utf-8-sig")
+        lookup = body_of(pm, "private ProfileExItem GetProfileExItem")
+        self.assertIn("IsNullOrEmpty()", lookup,
+                      "An empty IndexId must not create a new ProfileExItem row")
+
 
 if __name__ == "__main__":
     unittest.main()

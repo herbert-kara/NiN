@@ -423,7 +423,10 @@ public partial class ProfilesViewModel : MyReactiveObject
         var subid = SelectedSub?.Id ?? _config.SubIndexId;
         var lstModel = await GetProfileItemsEx(subid, _serverFilter);
 
-        ProfileItems.ReplaceRange(lstModel ?? []);
+        // A null row reaching the grid is fatal: DataGrid's automation peer throws
+        // ArgumentNullException("item") on the next layout pass and the app dies.
+        // Filter here so every caller (refresh, sort, retry) is covered at once.
+        ProfileItems.ReplaceRange((lstModel ?? []).Where(t => t != null).ToList());
         if (lstModel?.Count > 0)
         {
             ProfileItemModel? selected = null;

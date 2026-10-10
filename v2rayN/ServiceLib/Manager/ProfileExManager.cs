@@ -103,6 +103,12 @@ public class ProfileExManager
 
     private ProfileExItem GetProfileExItem(string? indexId)
     {
+        if (indexId.IsNullOrEmpty())
+        {
+            // ponytail: a row with a null IndexId poisons the grid join and kills the
+            // app. Never create one: callers with an empty id get the first real row.
+            return _lstProfileEx.FirstOrDefault() ?? AddProfileEx(Guid.NewGuid().ToString());
+        }
         return _lstProfileEx.FirstOrDefault(t => t.IndexId == indexId) ?? AddProfileEx(indexId);
     }
 
