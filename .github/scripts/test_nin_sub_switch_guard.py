@@ -20,6 +20,7 @@ import unittest
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 VM = ROOT / "v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs"
+SELECT_VM = ROOT / "v2rayN/ServiceLib/ViewModels/ProfilesSelectViewModel.cs"
 
 
 def body_of(src, marker):
@@ -96,6 +97,23 @@ class NiNSubSwitchGuardTests(unittest.TestCase):
                       "An empty list must be handled explicitly")
         self.assertNotIn("TableAsync<ProfileItem>().FirstOrDefaultAsync(t => t.Port > 0);", body,
                          "No whole-table server fallback: it moves the connection to another sub")
+
+    def test_select_dialog_uses_selected_sub(self):
+        # The server-select dialog has its own view model with the same stale-field
+        # bug: _subIndexId is a constructor snapshot, so a fast switch or a
+        # duplicate-named sub rebuilt the list for the previous group.
+        src = SELECT_VM.read_text(encoding="utf-8-sig")
+        body = body_of(src, "private async Task RefreshServersBiz()")
+        self.assertIn("SelectedSub?.Id", body,
+                      "The select dialog must rebuild for the selected sub, not the constructor snapshot")
+        self.assertNotIn("GetProfileItemsEx(_subIndexId,", body,
+                         "_subIndexId is a constructor snapshot: it holds the previous sub")
+
+    def test_select_dialog_items_query_uses_its_parameter(self):
+        src = SELECT_VM.read_text(encoding="utf-8-sig")
+        body = body_of(src, "private async Task<List<ProfileItemModel>?> GetProfileItemsEx")
+        self.assertIn("ProfileModels(subid,", body,
+                      "GetProfileItemsEx must query with the subid it was given")
 
 
 if __name__ == "__main__":

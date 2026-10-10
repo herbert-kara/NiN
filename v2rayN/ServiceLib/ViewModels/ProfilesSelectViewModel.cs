@@ -157,7 +157,10 @@ public partial class ProfilesSelectViewModel : MyReactiveObject, ICloseable
 
     private async Task RefreshServersBiz()
     {
-        var lstModel = await GetProfileItemsEx(_subIndexId, _serverFilter);
+        // SelectedSub is the source of truth: _subIndexId is a constructor snapshot
+        // and can still hold the previous sub when a refresh lands mid-switch.
+        var subid = SelectedSub?.Id ?? _subIndexId;
+        var lstModel = await GetProfileItemsEx(subid, _serverFilter);
 
         ProfileItems.ReplaceRange(lstModel);
         if (lstModel.Count > 0)
@@ -181,7 +184,7 @@ public partial class ProfilesSelectViewModel : MyReactiveObject, ICloseable
 
     private async Task<List<ProfileItemModel>?> GetProfileItemsEx(string subid, string filter)
     {
-        var lstModel = await AppManager.Instance.ProfileModels(_subIndexId, filter);
+        var lstModel = await AppManager.Instance.ProfileModels(subid, filter);
         var lstProfileExs = await ProfileExManager.Instance.GetProfileExs();
         lstModel = (from t in lstModel
                     join t3 in lstProfileExs on t.IndexId equals t3.IndexId into t3b
