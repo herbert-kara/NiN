@@ -18,6 +18,16 @@ public sealed class SQLiteHelper
         _dbAsync = new SQLiteAsyncConnection(_connstr, false);
     }
 
+    /// <summary>Column names of an existing table, via PRAGMA table_info.</summary>
+    public HashSet<string> ColumnNames(string table)
+    {
+        return _db.Query<TableInfoRow>($"PRAGMA table_info({table})")
+            .Select(r => r.name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>Synchronous; runs at startup before any async work starts.</summary>
+    public void Execute(string sql) => _db.Execute(sql);
+
     public CreateTableResult CreateTable<T>()
     {
         return _db.CreateTable<T>();

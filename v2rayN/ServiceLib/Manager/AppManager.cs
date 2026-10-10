@@ -87,6 +87,9 @@ public sealed class AppManager
         SQLiteHelper.Instance.CreateTable<ServerStatItem>();
         SQLiteHelper.Instance.CreateTable<RoutingItem>();
         SQLiteHelper.Instance.CreateTable<ProfileExItem>();
+        // CreateTable never adds columns to an existing table, so a database made by an
+        // older build silently drops every Jitter/Loss/Score write. Add them if missing.
+        EnsureProfileExQualityColumns();
         SQLiteHelper.Instance.CreateTable<DNSItem>();
         SQLiteHelper.Instance.CreateTable<FullConfigTemplateItem>();
 #pragma warning disable CS0618
@@ -324,6 +327,23 @@ public sealed class AppManager
     }
 
 #pragma warning disable CS0618
+
+    private static void EnsureProfileExQualityColumns()
+    {
+        var existing = SQLiteHelper.Instance.ColumnNames("ProfileExItem");
+        foreach (var (column, ddl) in new[]
+                 {
+                     ("Jitter", "ALTER TABLE ProfileExItem ADD COLUMN Jitter INTEGER NOT NULL DEFAULT -1"),
+                     ("PacketLoss", "ALTER TABLE ProfileExItem ADD COLUMN PacketLoss REAL NOT NULL DEFAULT 0"),
+                     ("QualityScore", "ALTER TABLE ProfileExItem ADD COLUMN QualityScore INTEGER NOT NULL DEFAULT 0"),
+                 })
+        {
+            if (!existing.Contains(column))
+            {
+                SQLiteHelper.Instance.Execute(ddl);
+            }
+        }
+    }
 
     public async Task MigrateProfileExtra()
     {
@@ -675,4 +695,10 @@ public sealed class AppManager
     }
 
     #endregion Core Type
+}
+
+/// <summary>One row of PRAGMA table_info, used to find which columns already exist.</summary>
+public sealed class TableInfoRow
+{
+    public string name { get; set; } = string.Empty;
 }
