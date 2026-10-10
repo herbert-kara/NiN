@@ -92,6 +92,21 @@ class NiNQualityDisplayTests(unittest.TestCase):
             "every SetTestDelay in SpeedtestService needs a matching SetTestQuality",
         )
 
+    def test_speedtest_result_updates_the_live_quality_row(self):
+        """The live row only refreshes from SetSpeedTestResult, so quality must be copied there.
+
+        Quality is stored in ProfileExManager during the test, but the grid shows the
+        ProfileItems row, which is only rebuilt on a full refresh. Without this copy the
+        Score/Jitter cells stay at dashes after a real-ping run.
+        """
+        vm = (ROOT / "v2rayN/ServiceLib/ViewModels/ProfilesViewModel.cs").read_text(
+            encoding="utf-8-sig")
+        body = vm.split("public async Task SetSpeedTestResult", 1)[1][:1500]
+        self.assertIn("item.Jitter = ex.Jitter", body,
+                      "SetSpeedTestResult must copy Jitter to the live row")
+        self.assertIn("item.QualityScore = ex.QualityScore", body,
+                      "SetSpeedTestResult must copy QualityScore to the live row")
+
     def test_quality_none_is_the_sentinel(self):
         src = (ROOT / "v2rayN/ServiceLib/Models/Dto/PingQuality.cs").read_text(
             encoding="utf-8-sig")

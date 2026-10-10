@@ -316,6 +316,17 @@ public partial class ProfilesViewModel : MyReactiveObject
         {
             item.IpInfo = result.IpInfo ?? string.Empty;
         }
+
+        // Quality is stored by SpeedtestService before this callback runs. Copy it to
+        // the live row here, or the Score/Jitter columns stay at their list-build
+        // values until the whole list is rebuilt.
+        var ex = (await ProfileExManager.Instance.GetProfileExs()).FirstOrDefault(t => t.IndexId == result.IndexId);
+        if (ex != null)
+        {
+            item.Jitter = ex.Jitter;
+            item.QualityScore = ex.QualityScore;
+            item.LossVal = ex.PacketLoss < 0 ? -1 : (int)Math.Round(ex.PacketLoss * 100);
+        }
         await Task.CompletedTask;
     }
 
