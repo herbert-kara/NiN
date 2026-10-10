@@ -234,10 +234,12 @@ public class ServerFlaggedServiceTests
         // Requests may overlap; only a small courtesy gap remains.
         const int Count = 40;
         static string Ok(string ip) => "{\"status\":\"ok\",\"" + ip + "\":{\"risk\":0,\"proxy\":\"no\"}}";
-        var responses = Enumerable.Range(0, Count)
-            .Select(i => ($"{11 + i}.1.1.1", Ok($"{11 + i}.1.1.1")))
-            .ToArray();
-        var http = new FakeHttp(responses);
+        // Answer by the requested address, not by queue order: forty concurrent
+        // calls do not return in the order they were made, so a queue mismatches
+        // bodies and makes the count assertion race.
+        var http = new FakeHttp(Enumerable.Range(0, Count)
+            .Select(i => ($"/v2/{11 + i}.1.1.1", Ok($"{11 + i}.1.1.1")))
+            .ToArray());
         var service = CreateService(http: http);
 
         var stopwatch = Stopwatch.StartNew();
@@ -346,11 +348,13 @@ public class ServerFlaggedServiceTests
     private sealed class FakeHttp
     {
         private readonly Queue<string> _bodies;
+        private readonly Dictionary<string, string> _byPath = new(StringComparer.OrdinalIgnoreCase);
         private readonly List<string> _paths = [];
 
         public FakeHttp(params (string Path, string Body)[] responses)
         {
             _bodies = new Queue<string>(responses.Select(r => r.Body));
+            foreach (var (path, body) in responses) _byPath[path] = body;
         }
 
         public int CallCount { get; private set; }
@@ -363,9 +367,13 @@ public class ServerFlaggedServiceTests
         public async Task<string> SendAsync(string url, CancellationToken cancellationToken)
         {
             CallCount++;
-            _paths.Add(new Uri(url).AbsolutePath);
+            var path = new Uri(url).AbsolutePath;
+            _paths.Add(path);
             await Task.Delay(5, cancellationToken);
             if (ThrowOnCall) throw new HttpRequestException("simulated failure");
+            // Address first: concurrent callers finish in any order, so a queue would
+            // hand one caller another caller's body.
+            if (_byPath.TryGetValue(path, out var byAddress)) return byAddress;
             return _bodies.TryDequeue(out var body) ? body : throw new HttpRequestException("no response configured");
         }
     }
