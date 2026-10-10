@@ -52,3 +52,7 @@ class NiNQualityMigrationTests(unittest.TestCase):
         src = self.src()
         self.assertRegex(src, r"class TableInfoRow\b",
                          "PRAGMA table_info needs a row type to deserialise into")
+
+
+if __name__ == "__main__":
+    unittest.main()

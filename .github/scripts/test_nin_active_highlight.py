@@ -59,3 +59,7 @@ class NiNActiveHighlightTests(unittest.TestCase):
         src = XAML.read_text(encoding="utf-8-sig")
         self.assertRegex(src, r'DataTrigger Binding="\{Binding IsActive\}" Value="True"',
                          "the highlight is a DataTrigger on IsActive")
+
+
+if __name__ == "__main__":
+    unittest.main()

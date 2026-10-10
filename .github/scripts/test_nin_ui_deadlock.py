@@ -44,3 +44,7 @@ class NiNUiDeadlockTests(unittest.TestCase):
                          "each pass must take a fresh id")
         self.assertRegex(src, r"Volatile\.Read\(ref _flagLookupPass\)\s*!=\s*pass",
                          "the pass must bail out when a newer one started")
+
+
+if __name__ == "__main__":
+    unittest.main()

@@ -73,3 +73,7 @@ class NiNLookupThroughputTests(unittest.TestCase):
             f"{configs} configs at {slots} slots / {gap}ms is about "
             f"{seconds:.0f}s of delay, which reads as a hang",
         )
+
+
+if __name__ == "__main__":
+    unittest.main()

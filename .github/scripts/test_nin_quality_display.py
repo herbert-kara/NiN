@@ -115,3 +115,7 @@ class NiNQualityDisplayTests(unittest.TestCase):
         self.assertIsNotNone(m)
         self.assertEqual(int(m.group(1)), -1,
                          "None.Median must stay -1 to mean 'never measured'")
+
+
+if __name__ == "__main__":
+    unittest.main()

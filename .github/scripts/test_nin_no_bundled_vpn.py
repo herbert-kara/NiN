@@ -52,3 +52,7 @@ class NiNNoBundledVpnTests(unittest.TestCase):
             found, [],
             f"absolute local paths baked into the app: {found}",
         )
+
+
+if __name__ == "__main__":
+    unittest.main()
