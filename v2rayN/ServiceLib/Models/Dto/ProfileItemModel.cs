@@ -41,15 +41,16 @@ public partial class ProfileItemModel : ReactiveObject
     // In-tunnel quality from the last real-ping run. A config that answers quickly
     // but swings wildly, or drops requests, is worse than a steadier one, and a
     // single delay number cannot show that.
-    [Reactive]
-    public partial int Jitter { get; set; }
-
-    // The grid binds to the *Text properties, so those must raise change
-    // notification themselves; a plain computed getter never re-renders.
-    partial void OnJitterChanged(int value)
+    private int _jitter = -1;
+    public int Jitter
     {
-        this.RaisePropertyChanged(nameof(JitterText));
-        this.RaisePropertyChanged(nameof(QualityDetail));
+        get => _jitter;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _jitter, value);
+            this.RaisePropertyChanged(nameof(JitterText));
+            this.RaisePropertyChanged(nameof(QualityDetail));
+        }
     }
 
     // Shown as an em dash rather than a blank cell: an empty column reads as a
@@ -63,13 +64,16 @@ public partial class ProfileItemModel : ReactiveObject
     /// <summary>Jitter as shown in the grid; dash until a quality run happens.</summary>
     public string JitterText => Jitter >= 0 ? Jitter.ToString() : NotMeasured;
 
-    [Reactive]
-    public partial int QualityScore { get; set; }
-
-    partial void OnQualityScoreChanged(int value)
+    private int _qualityScore;
+    public int QualityScore
     {
-        this.RaisePropertyChanged(nameof(QualityScoreText));
-        this.RaisePropertyChanged(nameof(QualityDetail));
+        get => _qualityScore;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _qualityScore, value);
+            this.RaisePropertyChanged(nameof(QualityScoreText));
+            this.RaisePropertyChanged(nameof(QualityDetail));
+        }
     }
 
     /// <summary>Loss as a whole percentage for display; -1 when never measured.</summary>

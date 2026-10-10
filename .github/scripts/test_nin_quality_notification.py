@@ -22,27 +22,56 @@ XAML = ROOT / "v2rayN/v2rayN/Views/ProfilesView.xaml"
 SERVICE = ROOT / "v2rayN/ServiceLib/Services/SpeedtestService.cs"
 
 
+def setter_of(src, prop):
+    """Text of the setter block of `public int <prop>` in src, or None."""
+    key = f"public int {prop}"
+    i = src.index(key)
+    i = src.index("{", i)
+    depth, j = 0, i
+    while True:
+        c = src[j]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return src[i:j + 1]
+        j += 1
+
+
 class NiNQualityNotificationTests(unittest.TestCase):
     def setUp(self):
         self.model = MODEL.read_text(encoding="utf-8-sig")
         self.xaml = XAML.read_text(encoding="utf-8")
-        self.service = SERVICE.read_text(encoding="utf-8")
+        self.service = SERVICE.read_text(encoding="utf-8-sig")
 
-    def test_jitter_change_raises_jitter_text(self):
-        self.assertIn("partial void OnJitterChanged", self.model,
-                      "Jitter changes must raise notification for JitterText")
-        block = self.model[self.model.index("partial void OnJitterChanged"):]
-        block = block[:block.index("}")]
+    def test_jitter_setter_raises_jitter_text(self):
+        block = setter_of(self.model, "Jitter")
+        self.assertIsNotNone(block, "Jitter must be a property with a setter")
+        self.assertIn("RaiseAndSetIfChanged(ref _jitter,", block,
+                      "Jitter setter must notify via RaiseAndSetIfChanged")
         self.assertIn("RaisePropertyChanged(nameof(JitterText))", block,
-                      "OnJitterChanged must notify JitterText, not just Jitter")
+                      "Jitter setter must notify JitterText, not just Jitter")
 
-    def test_score_change_raises_score_text(self):
-        self.assertIn("partial void OnQualityScoreChanged", self.model,
-                      "QualityScore changes must raise notification for QualityScoreText")
-        block = self.model[self.model.index("partial void OnQualityScoreChanged"):]
-        block = block[:block.index("}")]
+    def test_score_setter_raises_score_text(self):
+        block = setter_of(self.model, "QualityScore")
+        self.assertIsNotNone(block, "QualityScore must be a property with a setter")
+        self.assertIn("RaiseAndSetIfChanged(ref _qualityScore,", block,
+                      "QualityScore setter must notify via RaiseAndSetIfChanged")
         self.assertIn("RaisePropertyChanged(nameof(QualityScoreText))", block,
-                      "OnQualityScoreChanged must notify QualityScoreText, not just QualityScore")
+                      "QualityScore setter must notify QualityScoreText, not just QualityScore")
+
+    def test_no_partial_change_hooks(self):
+        # ReactiveUI.SourceGenerators here does not emit OnXxxChanged defining
+        # declarations; a bare partial void hook fails the build (CS0759).
+        self.assertNotIn("partial void OnJitterChanged", self.model,
+                         "CS0759: no defining declaration for a partial OnXxxChanged hook")
+        self.assertNotIn("partial void OnQualityScoreChanged", self.model,
+                         "CS0759: no defining declaration for a partial OnXxxChanged hook")
+
+    def test_jitter_defaults_to_unmeasured(self):
+        self.assertIn("private int _jitter = -1;", self.model,
+                      "Jitter must default to -1 so an untested row shows the em dash")
 
     def test_grid_binds_to_text_properties(self):
         self.assertIn('Binding="{Binding QualityScoreText}"', self.xaml,
