@@ -208,6 +208,11 @@ public partial class ProfilesSelectViewModel : MyReactiveObject, ICloseable
                         DelayVal = t33?.Delay != 0 ? $"{t33?.Delay}" : string.Empty,
                         SpeedVal = t33?.Speed > 0 ? $"{t33?.Speed}" : t33?.Message ?? string.Empty,
                         IpInfo = t33?.IpInfo ?? string.Empty,
+                        // Same three quality fields as the main list: without them this
+                        // dialog showed the Score/Jitter columns as permanently empty.
+                        Jitter = t33?.Jitter ?? -1,
+                        QualityScore = t33?.QualityScore ?? 0,
+                        LossVal = t33 == null ? -1 : (int)Math.Round((t33.PacketLoss * 100)),
                     }).OrderBy(t => t.Sort).ToList();
 
         // Apply ConfigType filter (include or exclude)

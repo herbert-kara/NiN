@@ -115,6 +115,20 @@ class NiNSubSwitchGuardTests(unittest.TestCase):
         self.assertIn("ProfileModels(subid,", body,
                       "GetProfileItemsEx must query with the subid it was given")
 
+    def test_both_queries_project_quality(self):
+        # The select dialog projects its rows from the same ProfileExItem table, but
+        # its projection omitted Jitter/QualityScore, so its Score/Jitter columns
+        # were permanently empty no matter how many real-ping runs happened.
+        for label, path in (("main list", VM), ("select dialog", SELECT_VM)):
+            src = path.read_text(encoding="utf-8-sig")
+            body = body_of(src, "private async Task<List<ProfileItemModel>?> GetProfileItemsEx")
+            self.assertIn("Jitter = t33?.Jitter ?? -1", body,
+                          f"{label}: Jitter must come from the ProfileExItem row")
+            self.assertIn("QualityScore = t33?.QualityScore ?? 0", body,
+                          f"{label}: QualityScore must come from the ProfileExItem row")
+            self.assertIn("LossVal = t33 == null ? -1", body,
+                          f"{label}: LossVal must be projected, -1 when never measured")
+
 
 if __name__ == "__main__":
     unittest.main()
