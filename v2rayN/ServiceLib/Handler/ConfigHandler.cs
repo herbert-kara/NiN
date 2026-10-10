@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 
 namespace ServiceLib.Handler;
 
@@ -448,13 +448,16 @@ public static class ConfigHandler
         {
             return 0;
         }
-        if (lstProfile.Count > 0)
+        // ponytail: no whole-table fallback. When the shown group is empty (or the
+        // sub filter matched nothing) picking a server from ANY sub silently moved
+        // the connection to a group the user did not choose. An empty list keeps
+        // the current server; add a "pick first from this sub" rule only if the
+        // product decides an empty group must still connect.
+        if (lstProfile.Count == 0)
         {
-            return await SetDefaultServerIndex(config, lstProfile.FirstOrDefault(t => t.Port > 0)?.IndexId);
+            return -1;
         }
-
-        var item = await SQLiteHelper.Instance.TableAsync<ProfileItem>().FirstOrDefaultAsync(t => t.Port > 0);
-        return await SetDefaultServerIndex(config, item?.IndexId);
+        return await SetDefaultServerIndex(config, lstProfile.FirstOrDefault(t => t.Port > 0)?.IndexId);
     }
 
     /// <summary>

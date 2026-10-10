@@ -74,6 +74,29 @@ class NiNSubSwitchGuardTests(unittest.TestCase):
         self.assertGreaterEqual(checks, 2,
                                 "Both the pre-work and the post-refresh path must check the pass")
 
+    def test_refresh_uses_selected_sub_not_stale_config(self):
+        body = body_of(self.src, "public async Task RefreshServersBiz()")
+        self.assertIn("SelectedSub?.Id", body,
+                      "The list must be rebuilt for the selected sub, not a stale config value")
+        self.assertNotIn("GetProfileItemsEx(_config.SubIndexId", body,
+                         "Reading _config.SubIndexId directly rebuilds the previous sub's list")
+
+    def test_items_query_uses_its_subid_parameter(self):
+        body = body_of(self.src, "private async Task<List<ProfileItemModel>?> GetProfileItemsEx")
+        self.assertIn("ProfileModels(subid,", body,
+                      "GetProfileItemsEx must query with the subid it was given")
+
+    def test_empty_group_does_not_steal_a_server_from_another_sub(self):
+        # Switching to an empty sub used to run a whole-table lookup and pick any
+        # server from ANY sub, silently moving the connection to a group the user
+        # did not select.
+        ch = (ROOT / "v2rayN/ServiceLib/Handler/ConfigHandler.cs").read_text(encoding="utf-8-sig")
+        body = body_of(ch, "public static async Task<int> SetDefaultServer(Config")
+        self.assertIn("lstProfile.Count == 0", body,
+                      "An empty list must be handled explicitly")
+        self.assertNotIn("TableAsync<ProfileItem>().FirstOrDefaultAsync(t => t.Port > 0);", body,
+                         "No whole-table server fallback: it moves the connection to another sub")
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,7 +20,7 @@ class NiNUiDeadlockTests(unittest.TestCase):
     def test_refresh_does_not_await_the_lookup(self):
         src = VM.read_text(encoding="utf-8-sig")
         tail = src.split("RefreshServersBiz()", 1)[1]
-        m = re.search(r"(await\s+)?LookupServerFlagsAsync\(", tail[:1200])
+        m = re.search(r"(await\s+)?LookupServerFlagsAsync\(", tail[:2400])
         self.assertIsNotNone(m, "RefreshServersBiz must still start the lookup")
         self.assertIsNone(
             m.group(1),

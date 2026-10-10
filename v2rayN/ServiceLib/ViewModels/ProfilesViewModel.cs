@@ -417,7 +417,11 @@ public partial class ProfilesViewModel : MyReactiveObject
 
     public async Task RefreshServersBiz()
     {
-        var lstModel = await GetProfileItemsEx(_config.SubIndexId, _serverFilter);
+        // SelectedSub is the source of truth: _config.SubIndexId can still hold the
+        // previous sub when this runs from the shared dispatcher, which used to
+        // rebuild the list for the old sub after a fast switch.
+        var subid = SelectedSub?.Id ?? _config.SubIndexId;
+        var lstModel = await GetProfileItemsEx(subid, _serverFilter);
 
         ProfileItems.ReplaceRange(lstModel ?? []);
         if (lstModel?.Count > 0)
@@ -536,7 +540,7 @@ public partial class ProfilesViewModel : MyReactiveObject
 
     private async Task<List<ProfileItemModel>?> GetProfileItemsEx(string subid, string filter)
     {
-        var lstModel = await AppManager.Instance.ProfileModels(_config.SubIndexId, filter);
+        var lstModel = await AppManager.Instance.ProfileModels(subid, filter);
 
         await ConfigHandler.SetDefaultServer(_config, lstModel);
 
