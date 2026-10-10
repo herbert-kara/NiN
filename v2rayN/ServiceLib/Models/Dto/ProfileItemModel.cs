@@ -1,4 +1,4 @@
-﻿namespace ServiceLib.Models.Dto;
+namespace ServiceLib.Models.Dto;
 
 [Serializable]
 public partial class ProfileItemModel : ReactiveObject
