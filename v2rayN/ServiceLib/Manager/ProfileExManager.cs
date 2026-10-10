@@ -173,12 +173,9 @@ public class ProfileExManager
             profileEx.PacketLoss = quality.Loss;
             profileEx.QualityScore = quality.Score;
         }
-        else if (profileEx.QualityScore == 0)
-        {
-            // Nothing better on record yet: record the miss so the column reads
-            // "not measured" instead of a misleading zero.
-            profileEx.Jitter = -1;
-        }
+        // An unmeasured test (tcping, UDP) leaves every quality column exactly as the
+        // last real-ping run wrote it: blanking Jitter here is what made the Score and
+        // Jitter columns fall back to "--" after any tcping/UDP run.
         IndexIdEnqueue(indexId);
     }
 

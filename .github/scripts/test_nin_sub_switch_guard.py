@@ -129,6 +129,25 @@ class NiNSubSwitchGuardTests(unittest.TestCase):
             self.assertIn("LossVal = t33 == null ? -1", body,
                           f"{label}: LossVal must be projected, -1 when never measured")
 
+    def test_unmeasured_test_never_blanks_quality(self):
+        # Auto-refresh runs tcping, and tcping used to reset Jitter to -1 even after a
+        # real-ping run had measured it. That is what made the Score/Jitter columns
+        # fall back to "--" a few seconds into a refresh loop.
+        src = (ROOT / "v2rayN/ServiceLib/Manager/ProfileExManager.cs").read_text(encoding="utf-8-sig")
+        body = body_of(src, "public void SetTestQuality")
+        self.assertNotIn("profileEx.Jitter = -1", body,
+                         "An unmeasured test must leave the measured Jitter alone")
+        self.assertNotIn("else if (profileEx.QualityScore == 0)", body,
+                         "No unmeasured branch may write quality columns")
+        self.assertNotIn("profileEx.PacketLoss = quality.Loss;", body.split("IndexIdEnqueue(indexId)")[-1],
+                         "Only a measured run may write quality columns")
+        # Both unmeasured callers must pass isMeasured: false.
+        svc = (ROOT / "v2rayN/ServiceLib/Services/SpeedtestService.cs").read_text(encoding="utf-8-sig")
+        self.assertIn("SetTestQuality(item.IndexId, PingQuality.None, false)", svc,
+                      "Tcping must not claim a measurement")
+        self.assertIn("SetTestQuality(it.IndexId, PingQuality.None, false)", svc,
+                      "The UDP probe must not claim a measurement")
+
 
 if __name__ == "__main__":
     unittest.main()
