@@ -86,6 +86,10 @@ class NiNQualityNotificationTests(unittest.TestCase):
             block = block[:nxt]
         self.assertIn("SetTestQuality(it.IndexId, quality)", block,
                       "Real ping must store quality for the row, not just delay")
+        # A retry that never reached the tunnel reports Median<0. Guard the store
+        # on a successful response or the batch retry blanks a measured result.
+        self.assertIn("if (responseTime > 0)", block,
+                      "A failed retry (Median<0) must not overwrite a measured quality result")
 
     def test_delay_test_does_not_erase_quality(self):
         # Tcping/UDP pass None with overwrite=false; only the measured path

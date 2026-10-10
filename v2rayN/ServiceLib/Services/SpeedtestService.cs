@@ -499,7 +499,12 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
         var responseTime = quality.Median;
 
         ProfileExManager.Instance.SetTestDelay(it.IndexId, responseTime);
-        ProfileExManager.Instance.SetTestQuality(it.IndexId, quality);
+        // A retry that could not reach the tunnel reports Median<0 (no measurement).
+        // Writing that would blank a quality result an earlier run did measure.
+        if (responseTime > 0)
+        {
+            ProfileExManager.Instance.SetTestQuality(it.IndexId, quality);
+        }
         await UpdateFunc(it.IndexId, responseTime.ToString());
 
         if (!_config.UiItem.HideColumnIpInfo && responseTime > 0)
