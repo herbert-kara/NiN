@@ -90,10 +90,14 @@ public class ActiveHighlightTests
             var grid = new DataGrid();
             grid.Resources.Add(typeof(DataGridRow), style);
             grid.ItemsSource = new[] { active, idle };
-            grid.Measure(new Size(400, 200));
-            grid.Arrange(new Rect(0, 0, 400, 200));
-            grid.UpdateLayout();
+
+            // A bare Measure/Arrange does not generate row containers — the grid has
+            // to be in a real visual tree first, so it is shown in a Window. (A Window
+            // can only be created and shown on an STA thread, hence RunOnStaThread.)
+            var window = new Window { Content = grid, Width = 400, Height = 200, Opacity = 0 };
+            window.Show();
             Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            grid.UpdateLayout();
 
             var activeRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(0);
             var idleRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(1);
