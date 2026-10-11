@@ -84,7 +84,12 @@ public class ActiveHighlightTests
             // DataTrigger on an unloaded element does not settle. So the rows are put
             // into a real DataGrid with a real ItemsSource and shown, exactly as the
             // app does, before the brushes are read.
-            var grid = new DataGrid { Style = style, ItemsSource = new[] { active, idle } };
+            // The row style goes in the grid's Resources, exactly as ProfilesView.xaml
+            // does: it targets DataGridRow, and applying it to the DataGrid itself
+            // throws "'DataGridRow' TargetType does not match type of element 'DataGrid'".
+            var grid = new DataGrid();
+            grid.Resources.Add(typeof(DataGridRow), style);
+            grid.ItemsSource = new[] { active, idle };
             grid.Measure(new Size(400, 200));
             grid.Arrange(new Rect(0, 0, 400, 200));
             grid.UpdateLayout();
