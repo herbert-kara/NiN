@@ -279,8 +279,12 @@
                              that styles itself silently dropped the active highlight. The
                              row is the parent of every cell and no column can override it. -->
                         <Style.Triggers>
+                            <!-- Foreground is the proof the trigger fires: the row
+                                 Background can be painted over by the DataGrid's own
+                                 selection template, but nothing repaints the text. -->
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                <Setter Property="Foreground" Value="White" />
                             </DataTrigger>
                         </Style.Triggers>
                     </Style>

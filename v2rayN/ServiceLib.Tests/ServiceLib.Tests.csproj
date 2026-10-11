@@ -4,6 +4,10 @@
         <OutputType>Exe</OutputType>
         <IsPackable>false</IsPackable>
         <ImplicitUsings>enable</ImplicitUsings>
+        <!-- The active-row highlight is a WPF contract: the test builds a real
+             DataGridRow and a real style so the trigger is evaluated, not grepped. -->
+        <UseWPF>true</UseWPF>
+        <TargetFramework>net10.0-windows</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>
