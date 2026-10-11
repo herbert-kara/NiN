@@ -76,38 +76,29 @@ public class ActiveHighlightTests
         {
             var style = BuildRowStyle();
 
-            var active = new ProfileItemModel { IndexId = "a", Remarks = "active" };
+            var active = new ProfileItemModel { IndexId = "a", Remarks = "active", IsActive = true };
             var idle = new ProfileItemModel { IndexId = "b", Remarks = "idle" };
 
-            var activeRow = new DataGridRow { DataContext = active, Style = style };
-            var idleRow = new DataGridRow { DataContext = idle, Style = style };
-
-            // A DataTrigger only settles once the binding has been evaluated and the
-            // dispatcher has run the work item, so pump it before reading: reading the
-            // local value here would miss the trigger's contribution entirely.
-            var rows = new[] { activeRow, idleRow };
-            foreach (var row in rows)
-            {
-                row.ApplyTemplate();
-                row.Measure(new Size(200, 40));
-                row.Arrange(new Rect(0, 0, 200, 40));
-            }
+            // A detached DataGridRow is never loaded (activeInTree=False), and a
+            // DataTrigger on an unloaded element does not settle. So the rows are put
+            // into a real DataGrid with a real ItemsSource and shown, exactly as the
+            // app does, before the brushes are read.
+            var grid = new DataGrid { Style = style, ItemsSource = new[] { active, idle } };
+            grid.Measure(new Size(400, 200));
+            grid.Arrange(new Rect(0, 0, 400, 200));
+            grid.UpdateLayout();
             Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-            // GetValue, not ReadLocalValue: a trigger contributes through the value
-            // system, not as a local value.
+            var activeRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(0);
+            var idleRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(1);
+
             var activeBrush = activeRow.GetValue(Control.BackgroundProperty);
             var idleBrush = idleRow.GetValue(Control.BackgroundProperty);
 
-            // Print what actually happened: a detached DataGridRow is not in a visual
-            // tree, and its DataTrigger only settles once the row is attached to a
-            // DataGrid that owns an ItemsSource. This output is what distinguishes
-            // "the style is wrong" from "the harness never let it fire".
             Console.WriteLine($"HL-DIAG active={activeBrush?.GetType().Name ?? "null"} " +
                               $"idle={idleBrush?.GetType().Name ?? "null"} " +
-                              $"activeStyle={activeRow.Style?.Triggers.Count ?? -1} " +
-                              $"activeInTree={activeRow.IsLoaded} " +
-                              $"activeDC={(activeRow.DataContext as ProfileItemModel)?.IsActive}");
+                              $"inTree={activeRow.IsLoaded} " +
+                              $"dc={(activeRow.DataContext as ProfileItemModel)?.IsActive}");
 
             // The active row must carry the trigger's brush; the idle row must not.
             return !ReferenceEquals(activeBrush, idleBrush);
