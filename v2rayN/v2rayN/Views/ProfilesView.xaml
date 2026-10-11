@@ -274,19 +274,18 @@
                 <DataGrid.Resources>
                     <Style BasedOn="{StaticResource MaterialDesignDataGridRow}" TargetType="DataGridRow">
                         <EventSetter Event="MouseDoubleClick" Handler="LstProfiles_MouseDoubleClick" />
-                    </Style>
-                    <Style BasedOn="{StaticResource MaterialDesignDataGridColumnHeader}" TargetType="DataGridColumnHeader">
-                        <EventSetter Event="Click" Handler="LstProfiles_ColumnHeader_Click" />
-                    </Style>
-
-                    <Style BasedOn="{StaticResource MaterialDesignDataGridCell}" TargetType="DataGridCell">
+                        <!-- The highlight belongs on the ROW, not the cell: a per-column
+                             CellStyle wins over the implicit resource style, so a column
+                             that styles itself silently dropped the active highlight. The
+                             row is the parent of every cell and no column can override it. -->
                         <Style.Triggers>
                             <DataTrigger Binding="{Binding IsActive}" Value="True">
                                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
-                                <Setter Property="Foreground" Value="Black" />
-                                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                             </DataTrigger>
                         </Style.Triggers>
+                    </Style>
+                    <Style BasedOn="{StaticResource MaterialDesignDataGridColumnHeader}" TargetType="DataGridColumnHeader">
+                        <EventSetter Event="Click" Handler="LstProfiles_ColumnHeader_Click" />
                     </Style>
                 </DataGrid.Resources>
                 <DataGrid.Columns>

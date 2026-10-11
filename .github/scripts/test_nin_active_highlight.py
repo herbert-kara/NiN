@@ -67,9 +67,21 @@ class NiNActiveHighlightTests(unittest.TestCase):
         )
 
     def test_the_grid_binds_to_is_active(self):
-        src = XAML.read_text(encoding="utf-8-sig")
-        self.assertRegex(src, r'DataTrigger Binding="\{Binding IsActive\}" Value="True"',
-                         "the highlight is a DataTrigger on IsActive")
+        # The trigger must sit on the DataGrid ROW. On the cell it lost: an implicit
+        # DataGridCell style is overridden by any column that styles itself, and the
+        # active highlight silently vanished. The row is every cell's parent and no
+        # column can override it.
+        for path in (XAML, ROOT / "v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml"):
+            src = path.read_text(encoding="utf-8-sig")
+            self.assertNotRegex(
+                src, r'TargetType="DataGridCell"',
+                f"{path.name}: no DataGridCell style may carry the highlight")
+            m = re.search(
+                r'TargetType="DataGridRow"[^>]*>(.*?)</Style>', src, re.S)
+            self.assertIsNotNone(m, f"{path.name}: the row style is missing")
+            self.assertRegex(
+                m.group(1), r'DataTrigger Binding="\{Binding IsActive\}" Value="True"',
+                f"{path.name}: the IsActive trigger belongs on the row style")
 
     def test_switching_server_resyncs_selected_profile(self):
         # RefreshServers replaces every row object, so a SelectedProfile captured
