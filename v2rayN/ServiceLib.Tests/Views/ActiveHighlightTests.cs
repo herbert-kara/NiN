@@ -48,6 +48,7 @@ public class ActiveHighlightTests
 
         if (failure is not null)
         {
+            Console.WriteLine($"HL-FAIL {failure.GetType().Name}: {failure.Message}");
             throw new InvalidOperationException("the STA body failed", failure);
         }
         return result;
