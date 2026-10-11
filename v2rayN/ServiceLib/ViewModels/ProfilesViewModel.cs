@@ -735,6 +735,11 @@ public partial class ProfilesViewModel : MyReactiveObject
         if (await ConfigHandler.SetDefaultServerIndex(_config, indexId) == 0)
         {
             await RefreshServers();
+            // RefreshServers replaced the row objects, so re-point SelectedProfile at
+            // the live row: it still held the pre-refresh object, and the grid kept
+            // showing the old highlight because the row it referred to was gone.
+            SelectedProfile = ProfileItems.FirstOrDefault(t => t.IndexId == indexId)
+                              ?? SelectedProfile;
             Reload();
         }
     }

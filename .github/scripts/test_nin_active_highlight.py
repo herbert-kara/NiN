@@ -71,6 +71,20 @@ class NiNActiveHighlightTests(unittest.TestCase):
         self.assertRegex(src, r'DataTrigger Binding="\{Binding IsActive\}" Value="True"',
                          "the highlight is a DataTrigger on IsActive")
 
+    def test_switching_server_resyncs_selected_profile(self):
+        # RefreshServers replaces every row object, so a SelectedProfile captured
+        # before the refresh points at a row that is no longer in the grid: the
+        # highlight kept sitting on the dead object and never moved.
+        vm = VM.read_text(encoding="utf-8-sig")
+        i = vm.index("public async Task SetDefaultServer(string? indexId)")
+        body = vm[i:vm.index("\n    }", i)]
+        self.assertRegex(body, r"SelectedProfile\s*=\s*ProfileItems\.FirstOrDefault\(",
+                         "SelectedProfile must be re-pointed at the live row")
+        # The assignment has to come AFTER the refresh, or it points at dead objects.
+        self.assertLess(body.index("await RefreshServers();"),
+                        body.index("SelectedProfile ="),
+                        "sync SelectedProfile after the refresh, not before")
+
 
 if __name__ == "__main__":
     unittest.main()
