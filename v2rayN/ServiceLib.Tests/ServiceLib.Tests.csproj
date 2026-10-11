@@ -4,11 +4,18 @@
         <OutputType>Exe</OutputType>
         <IsPackable>false</IsPackable>
         <ImplicitUsings>enable</ImplicitUsings>
-        <!-- The active-row highlight is a WPF contract: the test builds a real
-             DataGridRow and a real style so the trigger is evaluated, not grepped. -->
+        <!-- The active-row highlight is a WPF contract: these tests build a real
+             DataGridRow and a real style so the trigger is evaluated, not grepped.
+             UseWPF swaps out the default implicit-using set, so the ones the other
+             tests rely on are listed back in explicitly. -->
         <UseWPF>true</UseWPF>
         <TargetFramework>net10.0-windows</TargetFramework>
     </PropertyGroup>
+
+    <ItemGroup>
+        <Using Include="System.Net.Http" />
+        <Using Include="System.IO" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="TUnit" />

@@ -18,7 +18,7 @@ public class ActiveHighlightTests
     private static Style BuildRowStyle()
     {
         // The exact row style the grid applies, copied from ProfilesView.xaml:
-        // a DataTrigger on IsActive that sets the row Background.
+        // a DataTrigger on IsActive that sets the row Background and Foreground.
         var style = new Style(typeof(DataGridRow));
         var trigger = new DataTrigger
         {
