@@ -2,6 +2,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media;
+using System.Windows.Threading;
 using ServiceLib.Models.Dto;
 using TUnit.Assertions.Should;
 using TUnit.Core;
@@ -15,6 +16,43 @@ namespace ServiceLib.Tests.Views;
 /// </summary>
 public class ActiveHighlightTests
 {
+    /// <summary>
+    /// WPF objects (DataGridRow, style triggers) require an STA thread with a running
+    /// Dispatcher, so the visual assertion runs on one rather than on TUnit's default
+    /// thread.
+    /// </summary>
+    private static bool RunOnStaThread(Func<bool> body)
+    {
+        var failure = default(Exception);
+        bool result = false;
+
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                result = body();
+            }
+            catch (Exception ex)
+            {
+                failure = ex;
+            }
+            finally
+            {
+                Dispatcher.CurrentDispatcher.InvokeShutdown();
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.IsBackground = true;
+        thread.Start();
+        thread.Join();
+
+        if (failure is not null)
+        {
+            throw new InvalidOperationException("the STA body failed", failure);
+        }
+        return result;
+    }
+
     private static Style BuildRowStyle()
     {
         // The exact row style the grid applies, copied from ProfilesView.xaml:
@@ -34,23 +72,28 @@ public class ActiveHighlightTests
     [Test]
     public async Task IsActiveRowPaintsADifferentBackgroundThanAnIdleRow()
     {
-        var style = BuildRowStyle();
+        var different = RunOnStaThread(() =>
+        {
+            var style = BuildRowStyle();
 
-        var active = new ProfileItemModel { IndexId = "a", Remarks = "active" };
-        var idle = new ProfileItemModel { IndexId = "b", Remarks = "idle" };
+            var active = new ProfileItemModel { IndexId = "a", Remarks = "active" };
+            var idle = new ProfileItemModel { IndexId = "b", Remarks = "idle" };
 
-        var activeRow = new DataGridRow { DataContext = active, Style = style };
-        var idleRow = new DataGridRow { DataContext = idle, Style = style };
+            var activeRow = new DataGridRow { DataContext = active, Style = style };
+            var idleRow = new DataGridRow { DataContext = idle, Style = style };
 
-        // Force the style to evaluate, as the layout pass would.
-        activeRow.ApplyTemplate();
-        idleRow.ApplyTemplate();
+            // Force the style to evaluate, as the layout pass would.
+            activeRow.ApplyTemplate();
+            idleRow.ApplyTemplate();
 
-        // The active row must carry the trigger's brush; the idle row must not.
-        var activeBrush = activeRow.ReadLocalValue(Control.BackgroundProperty);
-        var idleBrush = idleRow.ReadLocalValue(Control.BackgroundProperty);
+            var activeBrush = activeRow.ReadLocalValue(Control.BackgroundProperty);
+            var idleBrush = idleRow.ReadLocalValue(Control.BackgroundProperty);
 
-        await Assert.That(ReferenceEquals(activeBrush, idleBrush)).IsFalse();
+            // The active row must carry the trigger's brush; the idle row must not.
+            return !ReferenceEquals(activeBrush, idleBrush);
+        });
+
+        await Assert.That(different).IsTrue();
     }
 
     [Test]
