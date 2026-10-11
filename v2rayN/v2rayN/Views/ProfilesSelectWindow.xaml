@@ -100,11 +100,26 @@
                     </DataGrid.InputBindings>
                     <DataGrid.Resources>
                         <Style BasedOn="{StaticResource MaterialDesignDataGridRow}" TargetType="DataGridRow">
+                            <Setter Property="BorderThickness" Value="0" />
                             <EventSetter Event="MouseDoubleClick" Handler="LstProfiles_MouseDoubleClick" />
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsActive}" Value="True">
                                     <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                 </DataTrigger>
+                                <!-- Same as ProfilesView: the selection fill would cover
+                                     the active blue, so selection is an outline instead. -->
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                    <Setter Property="BorderThickness" Value="2,0,0,0" />
+                                </Trigger>
+                            </Style.Triggers>
+                        </Style>
+                        <Style TargetType="DataGridCell">
+                            <Style.Triggers>
+                                <Trigger Property="IsSelected" Value="True">
+                                    <Setter Property="Background" Value="Transparent" />
+                                    <Setter Property="BorderBrush" Value="Transparent" />
+                                </Trigger>
                             </Style.Triggers>
                         </Style>
                         <Style BasedOn="{StaticResource MaterialDesignDataGridColumnHeader}" TargetType="DataGridColumnHeader">

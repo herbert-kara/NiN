@@ -73,9 +73,13 @@ class NiNActiveHighlightTests(unittest.TestCase):
         # column can override it.
         for path in (XAML, ROOT / "v2rayN/v2rayN/Views/ProfilesSelectWindow.xaml"):
             src = path.read_text(encoding="utf-8-sig")
-            self.assertNotRegex(
-                src, r'TargetType="DataGridCell"',
-                f"{path.name}: no DataGridCell style may carry the highlight")
+            # A DataGridCell style may exist -- it is what stops a selected cell from
+            # repainting the row's active background -- but it must not paint a solid
+            # colour of its own, which would cover the highlight again.
+            for m in re.finditer(r'TargetType="DataGridCell"[^>]*>(.*?)</Style>', src, re.S):
+                self.assertNotRegex(
+                    m.group(1), r'Property="Background" Value="(?!Transparent)',
+                    f"{path.name}: a DataGridCell style must leave Background transparent")
             m = re.search(
                 r'TargetType="DataGridRow"[^>]*>(.*?)</Style>', src, re.S)
             self.assertIsNotNone(m, f"{path.name}: the row style is missing")
