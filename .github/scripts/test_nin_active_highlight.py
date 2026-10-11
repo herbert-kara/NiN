@@ -37,10 +37,14 @@ class NiNActiveHighlightTests(unittest.TestCase):
             r"this\.RaiseAndSetIfChanged\(ref _isActive, value\);\s*\}",
             "IsActive must raise PropertyChanged through RaiseAndSetIfChanged")
 
-    def test_selection_moves_the_highlight(self):
+    def test_the_highlight_follows_the_connection_not_the_click(self):
+        # IsActive means "this row is the live connection", and config.IndexId decides
+        # that. Deriving it from SelectedProfile lit up whatever row the user clicked --
+        # including the "active" label bound to it -- while the real connection stayed
+        # unmarked, which is exactly what the user reported.
         src = VM.read_text(encoding="utf-8-sig")
         m = re.search(
-            r"WhenAnyValue\(x => x\.SelectedProfile\)\s*\n\s*\.Subscribe\(item =>(.{0,600})",
+            r"WhenAnyValue\(x => x\.SelectedProfile\)\s*\n(?:\s*\.\w+\([^\n]*\)\s*\n)*\s*\.Subscribe\(item =>(.{0,700})",
             src, re.S)
         self.assertIsNotNone(m, "the SelectedProfile handler is missing")
         block = m.group(1)
@@ -48,24 +52,28 @@ class NiNActiveHighlightTests(unittest.TestCase):
                       "changing the selection must reassign IsActive on the rows")
         self.assertRegex(block, r"row\.IsActive\s*=",
                          "the flag has to be assigned, not just read")
+        self.assertRegex(
+            block,
+            r"row\.IsActive\s*=\s*!indexId\.IsNullOrEmpty\(\)\s*&&\s*"
+            r"row\.IndexId\s*==\s*indexId",
+            "IsActive must come from config.IndexId, not from the selected item: "
+            "comparing against item.IndexId marks whichever row was clicked")
 
     def test_exactly_one_row_can_be_active(self):
         """The old row must be cleared, not just the new one marked."""
         src = VM.read_text(encoding="utf-8-sig")
         m = re.search(
-            r"WhenAnyValue\(x => x\.SelectedProfile\)\s*\n\s*\.Subscribe\(item =>(.{0,600})",
+            r"WhenAnyValue\(x => x\.SelectedProfile\)\s*\n(?:\s*\.\w+\([^\n]*\)\s*\n)*\s*\.Subscribe\(item =>(.{0,600})",
             src, re.S)
         block = m.group(1)
         self.assertIn("foreach", block, "every row has to be visited, not just the new one")
-        # The flag must be a straight equality against the selected IndexId. Anything
-        # that inverts the logic (`==` with a null guard on the wrong side) lights up
-        # every row instead of exactly one.
-        self.assertRegex(
-            block,
-            r"row\.IsActive\s*=\s*item\s*!=\s*null\s*&&\s*row\.IndexId\s*==\s*item\.IndexId",
-            "IsActive must be `item != null && row.IndexId == item.IndexId` so exactly "
-            "one row lights up; an inverted comparison lights up all of them",
-        )
+        # The flag must be a straight equality against the CONNECTED IndexId. Anything
+        # that compares against the selected item instead lights up the clicked row,
+        # which is the bug the user hit: "active" appeared on every row they clicked.
+        self.assertNotRegex(
+            block, r"row\.IndexId\s*==\s*item\.IndexId",
+            "comparing against the selected item marks the clicked row, not the "
+            "connected one -- compare against config.IndexId")
 
     def test_the_grid_binds_to_is_active(self):
         # The trigger must sit on the DataGrid ROW. On the cell it lost: an implicit

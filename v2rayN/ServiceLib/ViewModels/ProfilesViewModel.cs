@@ -103,15 +103,19 @@ public partial class ProfilesViewModel : MyReactiveObject
            x => x.SelectedProfile,
            selectedSource => selectedSource != null && !selectedSource.IndexId.IsNullOrEmpty());
 
-        // The blue highlight marks the active connection. It was only ever computed
-        // when the list was rebuilt from the config, so it sat on the old row until
-        // the app restarted even though the traffic really had moved.
+        // IsActive means "this row is the live connection", and config.IndexId is what
+        // decides that -- NOT the row the user clicked. Deriving it from SelectedProfile
+        // lit up whatever row was selected (and the "active" label that binds to it),
+        // while the real connection stayed unmarked. Selection is a separate concern and
+        // the grid already draws it.
         this.WhenAnyValue(x => x.SelectedProfile)
+            .Where(item => item != null && !item.IndexId.IsNullOrEmpty())
             .Subscribe(item =>
             {
+                var indexId = _config.IndexId;
                 foreach (var row in ProfileItems)
                 {
-                    row.IsActive = item != null && row.IndexId == item.IndexId;
+                    row.IsActive = !indexId.IsNullOrEmpty() && row.IndexId == indexId;
                 }
             });
 
