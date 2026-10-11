@@ -82,12 +82,22 @@ public class ActiveHighlightTests
             var activeRow = new DataGridRow { DataContext = active, Style = style };
             var idleRow = new DataGridRow { DataContext = idle, Style = style };
 
-            // Force the style to evaluate, as the layout pass would.
-            activeRow.ApplyTemplate();
-            idleRow.ApplyTemplate();
+            // A DataTrigger only settles once the binding has been evaluated and the
+            // dispatcher has run the work item, so pump it before reading: reading the
+            // local value here would miss the trigger's contribution entirely.
+            var rows = new[] { activeRow, idleRow };
+            foreach (var row in rows)
+            {
+                row.ApplyTemplate();
+                row.Measure(new Size(200, 40));
+                row.Arrange(new Rect(0, 0, 200, 40));
+            }
+            Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
 
-            var activeBrush = activeRow.ReadLocalValue(Control.BackgroundProperty);
-            var idleBrush = idleRow.ReadLocalValue(Control.BackgroundProperty);
+            // GetValue, not ReadLocalValue: a trigger contributes through the value
+            // system, not as a local value.
+            var activeBrush = activeRow.GetValue(Control.BackgroundProperty);
+            var idleBrush = idleRow.GetValue(Control.BackgroundProperty);
 
             // The active row must carry the trigger's brush; the idle row must not.
             return !ReferenceEquals(activeBrush, idleBrush);
