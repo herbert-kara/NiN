@@ -99,6 +99,16 @@ public class ActiveHighlightTests
             var activeBrush = activeRow.GetValue(Control.BackgroundProperty);
             var idleBrush = idleRow.GetValue(Control.BackgroundProperty);
 
+            // Print what actually happened: a detached DataGridRow is not in a visual
+            // tree, and its DataTrigger only settles once the row is attached to a
+            // DataGrid that owns an ItemsSource. This output is what distinguishes
+            // "the style is wrong" from "the harness never let it fire".
+            Console.WriteLine($"HL-DIAG active={activeBrush?.GetType().Name ?? "null"} " +
+                              $"idle={idleBrush?.GetType().Name ?? "null"} " +
+                              $"activeStyle={activeRow.Style?.Triggers.Count ?? -1} " +
+                              $"activeInTree={activeRow.IsLoaded} " +
+                              $"activeDC={(activeRow.DataContext as ProfileItemModel)?.IsActive}");
+
             // The active row must carry the trigger's brush; the idle row must not.
             return !ReferenceEquals(activeBrush, idleBrush);
         });
