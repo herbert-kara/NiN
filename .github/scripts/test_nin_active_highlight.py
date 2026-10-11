@@ -16,14 +16,25 @@ XAML = ROOT / "v2rayN/v2rayN/Views/ProfilesView.xaml"
 
 
 class NiNActiveHighlightTests(unittest.TestCase):
-    def test_is_active_is_reactive(self):
+    def test_is_active_notifies_the_grid(self):
         src = MODEL.read_text(encoding="utf-8-sig")
-        m = re.search(r"\[Reactive\]\s*\n\s*public partial bool IsActive", src)
-        self.assertIsNotNone(
-            m,
-            "IsActive must be a [Reactive] partial property, otherwise setting it "
-            "never notifies the grid and the highlight cannot move",
-        )
+        # [Reactive] partial needs the source generator this project does not build,
+        # so it compiles to a silent property: the highlight would never move.
+        self.assertNotRegex(
+            src, r"\[Reactive\]\s*\n\s*public partial bool IsActive",
+            "IsActive must not be a [Reactive] partial: the generator emits a second "
+            "definition (CS0102) and the grid never sees the change")
+        # The backing field must stay plain too: a [Reactive] on the field makes the
+        # generator emit a duplicate IsActive and the build fails.
+        self.assertNotRegex(
+            src, r"\[Reactive\]\s*\n\s*private bool _isActive",
+            "the backing field must not be [Reactive]: the generator would emit a "
+            "duplicate IsActive definition")
+        self.assertRegex(
+            src,
+            r"public bool IsActive\s*\{\s*get\s*=>\s*_isActive;\s*set\s*=>\s*"
+            r"this\.RaiseAndSetIfChanged\(ref _isActive, value\);\s*\}",
+            "IsActive must raise PropertyChanged through RaiseAndSetIfChanged")
 
     def test_selection_moves_the_highlight(self):
         src = VM.read_text(encoding="utf-8-sig")

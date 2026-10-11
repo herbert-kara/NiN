@@ -5,8 +5,14 @@ public partial class ProfileItemModel : ReactiveObject
 {
     // Reactive: the grid highlights this row, and the highlight has to follow the
     // active connection when it changes, not only when the list is rebuilt.
-    [Reactive]
-    public partial bool IsActive { get; set; }
+    // Written by hand: a [Reactive] partial here collides with the generated
+    // property (CS0102), so this one property carries its own setter.
+    private bool _isActive;
+    public bool IsActive
+    {
+        get => _isActive;
+        set => this.RaiseAndSetIfChanged(ref _isActive, value);
+    }
     public string IndexId { get; set; }
     public EConfigType ConfigType { get; set; }
     private string _remarks;
