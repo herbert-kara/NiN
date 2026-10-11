@@ -272,7 +272,13 @@
                     </ContextMenu>
                 </DataGrid.ContextMenu>
                 <DataGrid.Resources>
+                    <!-- ponytail: kill the selection FILL, keep the selection as a border.
+                         The DataGridRow ControlTemplate sets Background on IsSelected, and a
+                         template trigger outranks a Style trigger — so the active row's blue
+                         was always painted over by the clicked row's gray. The template never
+                         sets BorderThickness, so selection survives there instead. -->
                     <Style BasedOn="{StaticResource MaterialDesignDataGridRow}" TargetType="DataGridRow">
+                        <Setter Property="BorderThickness" Value="0" />
                         <EventSetter Event="MouseDoubleClick" Handler="LstProfiles_MouseDoubleClick" />
                         <!-- The highlight belongs on the ROW, not the cell: a per-column
                              CellStyle wins over the implicit resource style, so a column
@@ -286,6 +292,22 @@
                                 <Setter Property="Background" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
                                 <Setter Property="Foreground" Value="White" />
                             </DataTrigger>
+                            <!-- Gray/clicked: an outline, not a fill, so it cannot cover the
+                                 active row's blue. -->
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="BorderBrush" Value="{DynamicResource MaterialDesign.Brush.Primary.Light}" />
+                                <Setter Property="BorderThickness" Value="2,0,0,0" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                    <!-- The cells inherit the row Background, but a selected CELL repaints
+                         itself from the same theme brush, so both are neutralised here. -->
+                    <Style TargetType="DataGridCell">
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="Transparent" />
+                                <Setter Property="BorderBrush" Value="Transparent" />
+                            </Trigger>
                         </Style.Triggers>
                     </Style>
                     <Style BasedOn="{StaticResource MaterialDesignDataGridColumnHeader}" TargetType="DataGridColumnHeader">

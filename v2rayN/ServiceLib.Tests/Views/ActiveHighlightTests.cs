@@ -70,6 +70,21 @@ public class ActiveHighlightTests
         return style;
     }
 
+    /// <summary>
+    /// The cell style from ProfilesView.xaml: a selected cell must stay transparent,
+    /// otherwise it repaints the row's active background with the theme's selection
+    /// brush and the blue highlight disappears on click.
+    /// </summary>
+    private static Style BuildCellStyle()
+    {
+        var style = new Style(typeof(DataGridCell));
+        var trigger = new Trigger { Property = DataGridCell.IsSelectedProperty, Value = true };
+        trigger.Setters.Add(new Setter(Control.BackgroundProperty, Brushes.Transparent));
+        trigger.Setters.Add(new Setter(Control.BorderBrushProperty, Brushes.Transparent));
+        style.Triggers.Add(trigger);
+        return style;
+    }
+
     [Test]
     public async Task IsActiveRowPaintsADifferentBackgroundThanAnIdleRow()
     {
@@ -79,7 +94,6 @@ public class ActiveHighlightTests
 
             var active = new ProfileItemModel { IndexId = "a", Remarks = "active", IsActive = true };
             var idle = new ProfileItemModel { IndexId = "b", Remarks = "idle" };
-
             // A detached DataGridRow is never loaded (activeInTree=False), and a
             // DataTrigger on an unloaded element does not settle. So the rows are put
             // into a real DataGrid with a real ItemsSource and shown, exactly as the
@@ -137,6 +151,53 @@ public class ActiveHighlightTests
 
         await Assert.That(seen).Contains(nameof(ProfileItemModel.IsActive));
         await Assert.That(model.IsActive).IsTrue();
+    }
+
+    [Test]
+    public async Task TheSelectedActiveRowKeepsItsActiveBackground()
+    {
+        // The bug the user saw: clicking a row selects it, and the DataGridRow
+        // ControlTemplate repaints the selection over the row Background. A template
+        // trigger outranks a Style trigger, so the active row's blue was always
+        // covered by the clicked row's gray. The cell style must not reintroduce that.
+        var keepsBlue = RunOnStaThread(() =>
+        {
+            var rowStyle = BuildRowStyle();
+            var cellStyle = BuildCellStyle();
+
+            var active = new ProfileItemModel { IndexId = "a", IsActive = true };
+            var idle = new ProfileItemModel { IndexId = "b" };
+
+            var grid = new DataGrid();
+            grid.Resources.Add(typeof(DataGridRow), rowStyle);
+            grid.Resources.Add(typeof(DataGridCell), cellStyle);
+            grid.ItemsSource = new[] { active, idle };
+
+            var window = new Window { Content = grid, Width = 400, Height = 200, Opacity = 0 };
+            window.Show();
+            Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+            grid.UpdateLayout();
+
+            var activeRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(0);
+            var idleRow = (DataGridRow)grid.ItemContainerGenerator.ContainerFromIndex(1);
+
+            // Click the active row: this is exactly the interaction that used to wipe
+            // the blue highlight.
+            activeRow.IsSelected = true;
+            Dispatcher.CurrentDispatcher.Invoke(() => { }, DispatcherPriority.ApplicationIdle);
+
+            var selectedActive = activeRow.GetValue(Control.BackgroundProperty);
+            var idleBg = idleRow.GetValue(Control.BackgroundProperty);
+
+            Console.WriteLine($"HL-SEL selectedActive={selectedActive?.GetType().Name ?? "null"} " +
+                              $"idle={idleBg?.GetType().Name ?? "null"}");
+
+            // The clicked-and-active row must still carry the trigger's brush, and must
+            // differ from the idle row's.
+            return !ReferenceEquals(selectedActive, idleBg) && selectedActive is SolidColorBrush;
+        });
+
+        await Assert.That(keepsBlue).IsTrue();
     }
 
     [Test]
