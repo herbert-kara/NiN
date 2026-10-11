@@ -423,9 +423,21 @@ public static class ConfigHandler
             return -1;
         }
 
+        if (config.IndexId == indexId)
+        {
+            return 0;
+        }
+
         config.IndexId = indexId;
 
         await SaveConfig(config);
+
+        // ponytail: this function is called from four places -- the grid's own
+        // SetDefaultServer, a subscription import, and two fallbacks -- and only the
+        // first one refreshed the server list, so the highlight silently stayed on the
+        // old row for every other path. Announcing the change once here covers all
+        // callers; the grid recomputes IsActive from config.IndexId when it hears this.
+        StatusBarViewModel.Instance.ReloadRequested.Publish(RxVoid.Default);
 
         return 0;
     }

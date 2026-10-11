@@ -115,9 +115,40 @@ public partial class ProfilesViewModel : MyReactiveObject
                 }
             });
 
+        /// <summary>
+        /// config.IndexId is what the row highlight means, and it can be written by a
+        /// subscription import or a ConfigHandler fallback as well as by this view
+        /// model, so the highlight is re-asserted from it whenever it is announced
+        /// instead of only when this view model changes it.
+        /// </summary>
+        private async Task ReassertActiveRowAsync()
+        {
+            var indexId = _config.IndexId;
+            if (indexId.IsNullOrEmpty())
+            {
+                return;
+            }
+
+            await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
+        }
+
         this.WhenAnyValue(x => x.SelectedSub)
             .Where(y => y != null && !y.Remarks.IsNullOrEmpty() && _config.SubIndexId != y.Id)
             .SubscribeAsync(async _ => await SubSelectedChangedAsync());
+
+        // The active server can also be set outside this view model -- a subscription
+        // import and two ConfigHandler fallbacks all write config.IndexId. Only this
+        // view model's own SetDefaultServer used to refresh the list, so every other
+        // path left the highlight on the old row. SetDefaultServerIndex announces the
+        // change, so re-assert IsActive here rather than making Config reactive.
+        StatusBarViewModel.Instance.ReloadRequested
+            .AsObservable()
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
+            // ReloadRequested fires on every active-server change, and refreshing the
+            // list itself re-publishes it, so a re-entrant pass is dropped rather than
+            // allowed to ping-pong.
+            .Synchronize()
+            .SubscribeAsync(async _ => await ReassertActiveRowAsync());
         this.WhenAnyValue(x => x.SelectedMoveToGroup)
             .Where(y => y != null && !y.Remarks.IsNullOrEmpty())
             .SubscribeAsync(async _ => await MoveToGroup());
