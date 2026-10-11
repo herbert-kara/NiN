@@ -115,23 +115,6 @@ public partial class ProfilesViewModel : MyReactiveObject
                 }
             });
 
-        /// <summary>
-        /// config.IndexId is what the row highlight means, and it can be written by a
-        /// subscription import or a ConfigHandler fallback as well as by this view
-        /// model, so the highlight is re-asserted from it whenever it is announced
-        /// instead of only when this view model changes it.
-        /// </summary>
-        private async Task ReassertActiveRowAsync()
-        {
-            var indexId = _config.IndexId;
-            if (indexId.IsNullOrEmpty())
-            {
-                return;
-            }
-
-            await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
-        }
-
         this.WhenAnyValue(x => x.SelectedSub)
             .Where(y => y != null && !y.Remarks.IsNullOrEmpty() && _config.SubIndexId != y.Id)
             .SubscribeAsync(async _ => await SubSelectedChangedAsync());
@@ -318,6 +301,23 @@ public partial class ProfilesViewModel : MyReactiveObject
     private void Reload()
     {
         ReloadRequested.Publish();
+    }
+
+    /// <summary>
+    /// config.IndexId is what the row highlight means, and it can be written by a
+    /// subscription import or a ConfigHandler fallback as well as by this view model,
+    /// so the highlight is re-asserted from it whenever the change is announced,
+    /// instead of only when this view model is the one that changed it.
+    /// </summary>
+    private async Task ReassertActiveRowAsync()
+    {
+        var indexId = _config.IndexId;
+        if (indexId.IsNullOrEmpty())
+        {
+            return;
+        }
+
+        await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
     }
 
     public async Task SetSpeedTestResult(SpeedTestResult result)
