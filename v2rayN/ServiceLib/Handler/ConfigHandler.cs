@@ -1,5 +1,5 @@
 using System.Data;
-using ServiceLib.ViewModels;
+using ServiceLib.Events;
 
 namespace ServiceLib.Handler;
 
@@ -437,8 +437,9 @@ public static class ConfigHandler
         // SetDefaultServer, a subscription import, and two fallbacks -- and only the
         // first one refreshed the server list, so the highlight silently stayed on the
         // old row for every other path. Announcing the change once here covers all
-        // callers; the grid recomputes IsActive from config.IndexId when it hears this.
-        StatusBarViewModel.Instance.ReloadRequested.Publish(RxVoid.Default);
+        // callers. This is deliberately NOT the reload channel: a reload restarts the
+        // core and cuts the traffic, and all that is needed here is the highlight.
+        AppEvents.ActiveServerChanged.Publish(indexId);
 
         return 0;
     }

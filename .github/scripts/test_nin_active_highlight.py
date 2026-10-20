@@ -113,7 +113,7 @@ class NiNActiveHighlightTests(unittest.TestCase):
             body, r"config\.IndexId = indexId;",
             "SetDefaultServerIndex must assign the active server")
         self.assertRegex(
-            body, r"ReloadRequested\.Publish",
+            body, r"ActiveServerChanged\.Publish",
             "SetDefaultServerIndex must announce the change: every caller writes "
             "config.IndexId, and only an announcement lets the grid re-assert the "
             "highlight for callers that do not refresh the list themselves")
@@ -121,30 +121,40 @@ class NiNActiveHighlightTests(unittest.TestCase):
         # the no-op case, so the assignment must come first.
         self.assertLess(
             body.index("config.IndexId = indexId;"),
-            body.index("ReloadRequested.Publish"),
+            body.index("ActiveServerChanged.Publish"),
             "the change must be applied before it is announced")
+        # The reload channel restarts the core and cuts the traffic, which is what the
+        # user reported as "the connection hangs". The highlight needs its own channel.
+        self.assertNotRegex(
+            body, r"ReloadRequested\.Publish",
+            "announcing an active-server change on the reload channel restarts the "
+            "core and cuts the traffic -- use ActiveServerChanged instead")
 
     def test_the_grid_reacts_to_the_announcement(self):
         # Announcing is only half of it: the grid has to listen. Config is a plain
         # serializable class with no change notification, so a WhenAnyValue on
         # config.IndexId would never fire -- the subscription must be on the channel.
         src = VM.read_text(encoding="utf-8-sig")
-        self.assertIn("ReassertActiveRowAsync", src,
+        self.assertIn("ReassertActiveRow", src,
                       "the grid needs a handler that re-asserts the highlight")
         # Anchor on the SUBSCRIPTION (the last occurrence), not the method definition:
         # what matters is that the grid wires the handler to the channel, not merely
         # that a method by that name exists.
         m = None
-        for m in re.finditer(r"SubscribeAsync\(async _ => await ReassertActiveRowAsync\(\)\)", src):
+        for m in re.finditer(r"Subscribe\(_ => ReassertActiveRow\(\)\)", src):
             pass
-        self.assertIsNotNone(m, "nothing subscribes to ReassertActiveRowAsync")
+        self.assertIsNotNone(m, "nothing subscribes to ReassertActiveRow")
         window = src[max(0, m.start() - 600):m.end() + 200]
-        self.assertIn("ReloadRequested", window,
-                      "the grid must listen on ReloadRequested, not on Config")
+        self.assertIn("ActiveServerChanged", window,
+                      "the grid must listen on ActiveServerChanged")
         self.assertNotIn(
             "WhenAnyValue(x => x._config.IndexId", window,
             "Config has no change notification, so binding to config.IndexId would "
             "never fire -- subscribe to the announcement channel instead")
+        # Re-asserting the highlight must not reload the list either: that would
+        # restart the core and cut the traffic.
+        self.assertNotIn("ReloadRequested", window,
+                         "the highlight must not be wired to the reload channel")
 
     def test_switching_server_resyncs_selected_profile(self):
         # RefreshServers replaces every row object, so a SelectedProfile captured
