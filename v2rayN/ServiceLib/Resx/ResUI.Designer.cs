@@ -5347,6 +5347,15 @@ namespace ServiceLib.Resx {
         }
         
         /// <summary>
+        ///   查找类似 The connection stopped responding, reloading the config 的本地化字符串。
+        /// </summary>
+        public static string TipTunnelStalled {
+            get {
+                return ResourceManager.GetString("TipTunnelStalled", resourceCulture);
+            }
+        }
+
+        /// <summary>
         ///   查找类似 Please turn off when there is an abnormal disconnection 的本地化字符串。
         /// </summary>
         public static string TipDisplayLog {

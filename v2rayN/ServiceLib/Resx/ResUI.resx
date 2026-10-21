@@ -885,6 +885,9 @@
   <data name="TipChangeRouting" xml:space="preserve">
     <value>Routing setting has changed</value>
   </data>
+  <data name="TipTunnelStalled" xml:space="preserve">
+    <value>The connection stopped responding, reloading the config</value>
+  </data>
   <data name="TipChangeSystemProxy" xml:space="preserve">
     <value>System proxy setting has changed</value>
   </data>

@@ -17,6 +17,8 @@ public partial class MainWindowViewModel : MyReactiveObject
     public BackupAndRestoreViewModel BackupAndRestoreViewModel { get; } = new();
     public StatusBarViewModel StatusBarViewModel { get; } = StatusBarViewModel.Instance;
 
+    private TrafficWatchdogService? _trafficWatchdog;
+
     #region Menu
 
     //servers
@@ -343,6 +345,13 @@ public partial class MainWindowViewModel : MyReactiveObject
         {
             await StatisticsManager.Instance.Init(_config, UpdateStatisticsHandler);
         }
+
+        // Watches the tunnel and reloads the config when it stops answering, so a
+        // wedged connection recovers on its own instead of waiting for the user to
+        // notice and press Reload.
+        _trafficWatchdog = new TrafficWatchdogService();
+        _trafficWatchdog.Start();
+
         await RefreshServersDispatcherAsync();
 
         await Reload();
