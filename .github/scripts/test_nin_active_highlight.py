@@ -156,6 +156,42 @@ class NiNActiveHighlightTests(unittest.TestCase):
         self.assertNotIn("ReloadRequested", window,
                          "the highlight must not be wired to the reload channel")
 
+    def test_the_refresh_survives_a_missing_interaction_registration(self):
+        # The view registers DispatcherRefreshServersBizInteraction when it activates.
+        # Before that -- during startup, when the view model refreshes on its own --
+        # there is no registration and HandleSafe throws "Failed to find a
+        # registration for an Interaction". That exception aborted the whole refresh,
+        # so the grid never received its rows and the server list came up empty
+        # (the user saw the column headers and nothing under them).
+        src = VM.read_text(encoding="utf-8-sig")
+        m = re.search(
+            r"public async Task RefreshServersBiz\(\)(.{0,4000}?)\n    \}",
+            src, re.S)
+        self.assertIsNotNone(m, "RefreshServersBiz is missing")
+        block = m.group(1)
+        self.assertIn("DispatcherRefreshServersBizInteraction.HandleSafe", block)
+        # The call must be guarded: the scroll-to-selection it asks for is cosmetic,
+        # and losing it must not lose the list.
+        self.assertRegex(
+            block,
+            r"try\s*\{[^}]*DispatcherRefreshServersBizInteraction\.HandleSafe",
+            "the interaction call must be inside a try: an unregistered interaction "
+            "throws and would abort the refresh, leaving the grid empty")
+        self.assertRegex(
+            block, r"catch \(Exception ex\)",
+            "the failure must be caught and logged, not swallowed silently")
+
+    def test_only_one_place_fires_the_refresh_interaction(self):
+        # A second caller -- the view model reacting to an active-server change --
+        # fires the same interaction before the view has activated, which is exactly
+        # how the empty list happened. Re-asserting the highlight must touch the rows
+        # directly instead of going through the interaction.
+        src = VM.read_text(encoding="utf-8-sig")
+        self.assertEqual(
+            src.count("DispatcherRefreshServersBizInteraction.HandleSafe"), 1,
+            "only RefreshServersBiz may fire the interaction; a second caller runs "
+            "before the view has activated and the throw empties the grid")
+
     def test_switching_server_resyncs_selected_profile(self):
         # RefreshServers replaces every row object, so a SelectedProfile captured
         # before the refresh points at a row that is no longer in the grid: the

@@ -469,7 +469,20 @@ public partial class ProfilesViewModel : MyReactiveObject
             SelectedProfile = selected ?? lstModel.First();
         }
 
-        await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
+        // The interaction is registered by the view when it activates. Before that --
+        // during startup, when the view model refreshes on its own -- there is no
+        // registration, and HandleSafe throws "Failed to find a registration for an
+        // Interaction". That exception aborted the whole refresh, so the grid never
+        // received its rows and the server list came up empty. The scroll-to-selection
+        // it asks for is cosmetic, so losing it must not lose the list.
+        try
+        {
+            await DispatcherRefreshServersBizInteraction.HandleSafe(RxVoid.Default);
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog("RefreshServersBiz", ex);
+        }
 
         // Deliberately not awaited. The caller runs on the UI thread (see the
         // Dispatcher.Invoke in ProfilesView.xaml.cs) and the lookup marshals its
