@@ -1,4 +1,4 @@
-﻿name: NiN Windows release
+name: NiN Windows release
 
 on:
   push:
@@ -170,14 +170,28 @@ jobs:
           set -euo pipefail
           gh api --paginate --slurp "repos/$GH_REPO/releases?per_page=100" > releases.json
           STATUS=$(jq -r --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)][0] | if . == null then "missing" elif .draft then "draft" else "published" end' releases.json)
-          if [ "$STATUS" = published ]; then
-            echo "Release already published; leaving assets immutable"
+          # The commit the published assets were built from. A published release keeps
+          # its assets, but a tag that was moved to a new commit has to replace them:
+          # otherwise the release silently ships a build that is not the tag it names.
+          CURRENT_COMMIT=$(gh api "repos/$GH_REPO/commits/$RELEASE_TAG" --jq '.sha')
+          BUILT_COMMIT=$(jq -r --arg tag "$RELEASE_TAG" '[.[][] | select(.tag_name == $tag)][0].body // "" | (try capture("<!-- build-commit: (?<sha>[0-9a-f]+) -->").sha catch "")' releases.json)
+          if [ "$STATUS" = published ] && [ "$BUILT_COMMIT" = "$CURRENT_COMMIT" ]; then
+            echo "Release already published from $CURRENT_COMMIT; leaving assets immutable"
             exit 0
           fi
+          if [ "$STATUS" = published ]; then
+            echo "Tag moved from $BUILT_COMMIT to $CURRENT_COMMIT; replacing the published assets"
+          fi
           if [ "$STATUS" = missing ]; then
-            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "NiN $RELEASE_TAG" --notes 'Personal PattN fork: NI application and status icons, NiN branding, bundled country flag images beside profile names. Country flags update automatically from public server IP lookup over HTTPS (ipwho.is); measured exit-country results take precedence. Only public IPs are submitted, never credentials. Server location can differ from exit location; unknown locations are not guessed. Windows x64 WPF and Avalonia portable packages. Unsigned binaries; SHA-256 checksums included. Unit tests and both UI builds must pass before upload. Device-side connection testing is still required.'
+            gh release create "$RELEASE_TAG" --verify-tag --draft --prerelease --title "NiN $RELEASE_TAG" --notes "Personal PattN fork: NI application and status icons, NiN branding, bundled country flag images beside profile names. Country flags update automatically from public server IP lookup over HTTPS (ipwho.is); measured exit-country results take precedence. Only public IPs are submitted, never credentials. Server location can differ from exit location; unknown locations are not guessed. Windows x64 WPF and Avalonia portable packages. Unsigned binaries; SHA-256 checksums included. Unit tests and both UI builds must pass before upload. Device-side connection testing is still required.
+          <!-- build-commit: $CURRENT_COMMIT -->"
           fi
           gh release upload "$RELEASE_TAG" dist/*.zip dist/*.sha256 --clobber
+          if [ "$STATUS" != missing ]; then
+            NOTES=$(gh release view "$RELEASE_TAG" --json body --jq .body | grep -v '^<!-- build-commit:' || true)
+            gh release edit "$RELEASE_TAG" --notes "$NOTES
+          <!-- build-commit: $CURRENT_COMMIT -->"
+          fi
           if [ "$DRAFT_ONLY" != true ]; then
             gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
           fi
