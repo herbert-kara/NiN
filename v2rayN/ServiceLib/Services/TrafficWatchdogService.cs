@@ -97,7 +97,7 @@ public class TrafficWatchdogService
             return;
         }
 
-        Logging.SaveLog("TrafficWatchdog", ResUI.TipTunnelStalled);
+        Logging.SaveLog($"TrafficWatchdog: {ResUI.TipTunnelStalled}");
         NoticeManager.Instance.SendMessageEx(ResUI.TipTunnelStalled);
 
         // The same path the toolbar's Reload button uses.
