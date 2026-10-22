@@ -31,6 +31,26 @@
                     FontSize="{DynamicResource StdFontSize}"
                     ItemContainerStyle="{StaticResource MyChipListBoxItem}"
                     Style="{StaticResource MaterialDesignChoiceChipPrimaryOutlineListBox}">
+                    <ListBox.ContextMenu>
+                        <!-- The chips are the subscription groups. Right-click used to
+                             do nothing here: the menu only existed in the Avalonia
+                             build, so there was no way to edit or delete a group
+                             from the WPF app. -->
+                        <ContextMenu Style="{StaticResource DefContextMenu}">
+                            <MenuItem
+                                x:Name="menuSubEdit"
+                                Height="{StaticResource MenuItemHeight}"
+                                Header="{x:Static resx:ResUI.menuSubEdit}" />
+                            <MenuItem
+                                x:Name="menuSubAdd"
+                                Height="{StaticResource MenuItemHeight}"
+                                Header="{x:Static resx:ResUI.menuSubAdd}" />
+                            <MenuItem
+                                x:Name="menuSubDelete"
+                                Height="{StaticResource MenuItemHeight}"
+                                Header="{x:Static resx:ResUI.menuSubDelete}" />
+                        </ContextMenu>
+                    </ListBox.ContextMenu>
                     <ListBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Remarks}" />

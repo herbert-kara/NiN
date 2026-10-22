@@ -1070,6 +1070,24 @@ public partial class ProfilesViewModel : MyReactiveObject
 
     #region Subscription
 
+    /// <summary>
+    /// The subscription group the chip menu acts on: the chip the user pointed
+    /// at. config.SubIndexId names the PREVIOUS group until the asynchronous
+    /// switch finishes, so using it would edit or delete the wrong one -- and
+    /// deleting a group deletes the servers in it.
+    /// </summary>
+    private async Task<SubItem?> GetContextSub()
+    {
+        var id = SelectedSub?.Id;
+        if (id.IsNullOrEmpty())
+        {
+            // The synthetic "All" entry has no id: it is not a row in the
+            // database and must not be editable or deletable.
+            return null;
+        }
+        return await AppManager.Instance.GetSubItem(id);
+    }
+
     private async Task EditSubAsync(bool blNew)
     {
         SubItem item;
@@ -1079,7 +1097,7 @@ public partial class ProfilesViewModel : MyReactiveObject
         }
         else
         {
-            item = await AppManager.Instance.GetSubItem(_config.SubIndexId);
+            item = await GetContextSub();
             if (item is null)
             {
                 return;
@@ -1095,7 +1113,7 @@ public partial class ProfilesViewModel : MyReactiveObject
 
     private async Task DeleteSubAsync()
     {
-        var item = await AppManager.Instance.GetSubItem(_config.SubIndexId);
+        var item = await GetContextSub();
         if (item is null)
         {
             return;

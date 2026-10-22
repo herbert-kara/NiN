@@ -24,6 +24,7 @@ public partial class ProfilesView
         lstProfiles.PreviewKeyDown += LstProfiles_PreviewKeyDown;
         lstProfiles.SelectionChanged += LstProfiles_SelectionChanged;
         lstProfiles.LoadingRow += LstProfiles_LoadingRow;
+        lstGroup.PreviewMouseRightButtonDown += LstGroup_PreviewMouseRightButtonDown;
         menuSelectAll.Click += menuSelectAll_Click;
 
         if (_config.UiItem.EnableDragDropSort)
@@ -45,6 +46,9 @@ public partial class ProfilesView
             this.Bind(ViewModel, vm => vm.ServerFilter, v => v.txtServerFilter.Text).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddSubCmd, v => v.btnAddSub).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.EditSubCmd, v => v.btnEditSub).DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.EditSubCmd, v => v.menuSubEdit).DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.AddSubCmd, v => v.menuSubAdd).DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.DeleteSubCmd, v => v.menuSubDelete).DisposeWith(disposables);
 
             //servers delete
             this.BindCommand(ViewModel, vm => vm.EditServerCmd, v => v.menuEditServer).DisposeWith(disposables);
@@ -216,6 +220,23 @@ public partial class ProfilesView
     private void menuSelectAll_Click(object sender, RoutedEventArgs e)
     {
         lstProfiles.SelectAll();
+    }
+
+    /// <summary>
+    /// A right-click on a chip must act on THAT chip. WPF does not move the
+    /// selection on a right-click, so without this the menu would edit or delete
+    /// whichever group happened to be selected -- and several groups can share
+    /// a name, so the user cannot tell them apart afterwards.
+    /// </summary>
+    private void LstGroup_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        // ContainerFromElement is the built-in way to get the chip that was hit;
+        // walking the visual tree by hand would throw on some hit targets.
+        var chip = ItemsControl.ContainerFromElement(lstGroup, e.OriginalSource as DependencyObject) as ListBoxItem;
+        if (chip?.DataContext is SubItem sub)
+        {
+            lstGroup.SelectedItem = sub;
+        }
     }
 
     private void LstProfiles_PreviewKeyDown(object sender, KeyEventArgs e)
