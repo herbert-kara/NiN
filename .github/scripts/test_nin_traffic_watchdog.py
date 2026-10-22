@@ -26,8 +26,76 @@ class NiNTrafficWatchdogTests(unittest.TestCase):
     def test_the_watchdog_exists_with_its_state_machine(self):
         self.assertTrue(WATCHDOG.exists(), "the watchdog state machine is missing")
         src = WATCHDOG.read_text(encoding="utf-8-sig")
-        self.assertRegex(src, r"public bool Tick\(bool tunnelOk\)",
-                         "the watchdog must expose a Tick that takes the probe result")
+        self.assertRegex(src, r"public bool Tick\(bool tunnelOk, bool trafficFlowing\)",
+                         "the watchdog must take both the probe result and whether "
+                         "traffic is flowing: a saturated link fails the probe")
+
+    def test_flowing_traffic_outranks_a_failed_probe(self):
+        # The bug: a download saturated the link, the probe timed out, and the
+        # config was reloaded in the middle of the download. Bytes arriving are
+        # proof the tunnel works, so a failed probe while traffic flows is not a
+        # stall. Without this the user loses the download every time the link is busy.
+        src = WATCHDOG.read_text(encoding="utf-8-sig")
+        m = re.search(r"public bool Tick\(bool tunnelOk, bool trafficFlowing\)\s*\{(.{0,400})", src, re.S)
+        self.assertIsNotNone(m, "Tick is missing")
+        self.assertRegex(
+            m.group(1),
+            r"if\s*\(tunnelOk\s*\|\|\s*trafficFlowing\)",
+            "a sample with traffic flowing must be treated as a healthy tunnel: the "
+            "probe only times out because the link is saturated")
+
+    def test_the_service_checks_traffic_before_probing(self):
+        # Checking traffic first is what avoids the false alarm: the probe is the
+        # thing that misreads a busy link, so it must not even run while data flows.
+        src = SERVICE.read_text(encoding="utf-8-sig")
+        m = re.search(r"private async Task TickAsync\(CancellationToken token\)(.{0,1200})", src, re.S)
+        self.assertIsNotNone(m, "TickAsync is missing")
+        block = m.group(1)
+        traffic_at = block.find("BytesMovedSinceLastTick()")
+        probe_at = block.find("ProbeAsync(")
+        self.assertGreaterEqual(traffic_at, 0, "the service must sample real traffic")
+        self.assertGreaterEqual(probe_at, 0, "the service must still probe")
+        self.assertLess(
+            traffic_at, probe_at,
+            "the traffic check must come BEFORE the probe: when bytes are moving "
+            "there is nothing to probe and nothing to fix")
+        # And it must actually report the traffic, or the whole check is a no-op.
+        self.assertRegex(
+            block,
+            r"BytesMovedSinceLastTick\(\)\s*>=\s*MinBytesPerTick\)\s*\{\s*"
+            r"_watchdog\.Tick\(tunnelOk:\s*true,\s*trafficFlowing:\s*true\)",
+            "the traffic branch must tell the watchdog that traffic is flowing: "
+            "passing trafficFlowing: false here makes the check do nothing")
+
+    def test_the_traffic_signal_counts_received_bytes_only(self):
+        # Bytes sent into a dead tunnel keep leaving the machine until the socket
+        # buffer fills, so counting sends would call a wedged tunnel busy.
+        src = SERVICE.read_text(encoding="utf-8-sig")
+        m = re.search(r"private long BytesMovedSinceLastTick\(\)(.{0,700})", src, re.S)
+        self.assertIsNotNone(m, "the traffic sampler is missing")
+        block = m.group(1)
+        self.assertIn("BytesReceived", block, "the sampler must read received bytes")
+        self.assertNotIn(
+            "BytesSent", block,
+            "the sampler must not count sent bytes: they keep flowing into a dead "
+            "tunnel, so a wedged connection would look busy")
+
+    def test_the_probe_timeout_is_longer_than_the_latency_timeout(self):
+        # A liveness check is not a speed test. On a saturated link a small request
+        # takes longer than the 5 s latency budget, and scoring that as dead is the
+        # false alarm itself.
+        src = SERVICE.read_text(encoding="utf-8-sig")
+        self.assertRegex(
+            src, r"ProbeTimeout\s*=\s*TimeSpan\.FromSeconds\(\d+\)",
+            "the probe must have its own timeout")
+        m = re.search(r"ProbeTimeout\s*=\s*TimeSpan\.FromSeconds\((\d+)\)", src)
+        self.assertGreaterEqual(
+            int(m.group(1)), 10,
+            "the probe timeout must be well above the 5 s latency budget, or a slow "
+            "link is scored as a dead tunnel")
+        self.assertIn(
+            "GetRealPingQuality(webProxy, 1, token, ProbeTimeout)", src,
+            "the probe must actually pass its longer timeout to the request")
 
     def test_an_idle_or_never_working_tunnel_never_reloads(self):
         # The app is idle most of the time and the server is sometimes simply
@@ -62,10 +130,10 @@ class NiNTrafficWatchdogTests(unittest.TestCase):
         # the streak only ever grows, and the watchdog fires on the first blip after
         # a single hiccup.
         src = WATCHDOG.read_text(encoding="utf-8-sig")
-        m = re.search(r"public bool Tick\(bool tunnelOk\)\s*\{(.{0,600})", src, re.S)
+        m = re.search(r"public bool Tick\(bool tunnelOk, bool trafficFlowing\)\s*\{(.{0,600})", src, re.S)
         self.assertIsNotNone(m, "Tick is missing")
         block = m.group(1)
-        ok_branch = re.search(r"if\s*\(tunnelOk\)\s*\{(.{0,300}?)\}", block, re.S)
+        ok_branch = re.search(r"if\s*\(tunnelOk\s*\|\|\s*trafficFlowing\)\s*\{(.{0,300}?)\}", block, re.S)
         self.assertIsNotNone(ok_branch, "the success branch is missing")
         self.assertRegex(
             ok_branch.group(1), r"_consecutiveFailures\s*=\s*0",

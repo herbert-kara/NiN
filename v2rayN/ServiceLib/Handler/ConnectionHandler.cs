@@ -78,21 +78,26 @@ public static class ConnectionHandler
         /// <summary>
         /// Runs the in-tunnel samples and reduces them to latency, jitter and loss.
         /// </summary>
-        public static async Task<PingQuality> GetRealPingQuality(IWebProxy? webProxy, int samples, CancellationToken cancellationToken = default)
+        /// <param name="timeout">
+        /// How long the whole run may take. A liveness check passes a longer one than
+        /// a latency measurement: on a saturated link a small request is slow, not dead.
+        /// </param>
+        public static async Task<PingQuality> GetRealPingQuality(IWebProxy? webProxy, int samples, CancellationToken cancellationToken = default, TimeSpan? timeout = null)
         {
             var url = AppManager.Instance.Config.SpeedTestItem.SpeedPingTestUrl;
             var timings = new List<int>(Math.Max(samples, 1));
+            var budget = timeout ?? Global.LocalFetch;
             try
             {
                 using var timeoutCts = new CancellationTokenSource();
-                timeoutCts.CancelAfter(Global.LocalFetch);
+                timeoutCts.CancelAfter(budget);
                 using var linkedCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutCts.Token);
                 var linkedToken = linkedCts.Token;
                 using var client = new HttpClient(new SocketsHttpHandler()
                 {
                     Proxy = webProxy,
                     UseProxy = webProxy != null,
-                    ConnectTimeout = Global.LocalFetch,
+                    ConnectTimeout = budget,
                 });
 
                 var attempts = Math.Max(samples, 1);

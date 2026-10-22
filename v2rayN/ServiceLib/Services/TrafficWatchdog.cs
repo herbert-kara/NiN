@@ -9,6 +9,10 @@ namespace ServiceLib.Services;
 /// config -- that would only restart the core over and over. So the watchdog stays
 /// disarmed until the tunnel answers once, and only then does a run of failures
 /// mean the tunnel wedged rather than the server being unreachable.
+///
+/// Traffic flowing is proof of life that outranks the probe. A download that
+/// saturates the link makes the probe slow enough to time out, and a timeout used
+/// to be read as a stall: the config was reloaded in the middle of the download.
 /// </remarks>
 public class TrafficWatchdog
 {
@@ -26,13 +30,21 @@ public class TrafficWatchdog
     }
 
     /// <summary>
-    /// Feeds one probe result into the watchdog.
+    /// Feeds one sample into the watchdog.
     /// </summary>
-    /// <param name="tunnelOk">Whether the tunnel answered.</param>
+    /// <param name="tunnelOk">Whether the probe through the tunnel answered.</param>
+    /// <param name="trafficFlowing">
+    /// Whether bytes are moving on the wire. True means the tunnel is carrying
+    /// traffic right now, which is stronger evidence than a probe that timed out
+    /// because the link was saturated.
+    /// </param>
     /// <returns>True when the config should be reloaded now.</returns>
-    public bool Tick(bool tunnelOk)
+    public bool Tick(bool tunnelOk, bool trafficFlowing)
     {
-        if (tunnelOk)
+        // A busy link is a working link. The probe is a small request, but on a
+        // saturated connection even that can take longer than its timeout, and
+        // reading that as a stall reloads the config mid-download.
+        if (tunnelOk || trafficFlowing)
         {
             _consecutiveFailures = 0;
             _armed = true;

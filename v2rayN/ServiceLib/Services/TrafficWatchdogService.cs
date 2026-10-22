@@ -39,6 +39,21 @@ public class TrafficWatchdogService
     /// </summary>
     public static readonly TimeSpan ProbeInterval = TimeSpan.FromSeconds(5);
 
+    /// <summary>
+    /// Traffic above this in one interval means the link is busy, so the tunnel is
+    /// carrying data and there is nothing to fix. A wedged tunnel moves no bytes at
+    /// all, so the threshold only has to clear background chatter: 8 KB over 5
+    /// seconds is 13 kbit/s, far below any real download and far above idle.
+    /// </summary>
+    private const long MinBytesPerTick = 8 * 1024;
+
+    /// <summary>
+    /// How long the liveness probe may take. Longer than the 5 s latency timeout:
+    /// a saturated link slows a small request down but does not break it, and the
+    /// point here is to tell "slow" from "dead", not to measure speed.
+    /// </summary>
+    private static readonly TimeSpan ProbeTimeout = TimeSpan.FromSeconds(10);
+
     public void Start()
     {
         Stop();
@@ -91,8 +106,19 @@ public class TrafficWatchdogService
             return;
         }
 
+        // Bytes moving on the wire are proof the tunnel works, and they outrank the
+        // probe: a download that saturates the link makes a small request time out,
+        // and that timeout used to be read as a stall -- so the config was reloaded
+        // in the middle of the download. When traffic flows there is nothing to
+        // probe and nothing to fix.
+        if (BytesMovedSinceLastTick() >= MinBytesPerTick)
+        {
+            _watchdog.Tick(tunnelOk: true, trafficFlowing: true);
+            return;
+        }
+
         var tunnelOk = await ProbeAsync(token);
-        if (!_watchdog.Tick(tunnelOk))
+        if (!_watchdog.Tick(tunnelOk, trafficFlowing: false))
         {
             return;
         }
@@ -105,9 +131,59 @@ public class TrafficWatchdogService
     }
 
     /// <summary>
+    /// Bytes received on every non-loopback interface since the previous call, so a
+    /// saturated download reads as traffic while a wedged tunnel does not.
+    /// </summary>
+    /// <remarks>
+    /// Received only: bytes the app sends into a dead tunnel keep leaving the machine
+    /// until the socket buffer fills, so counting sends would call a wedged tunnel busy.
+    /// The physical interface is counted rather than the core's own sockets because the
+    /// core's byte counters only exist when the statistics display is switched on, and
+    /// the user runs with it off.
+    /// </remarks>
+    private long _lastReceivedBytes;
+
+    private long BytesMovedSinceLastTick()
+    {
+        try
+        {
+            long total = 0;
+            foreach (var ni in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (ni.OperationalStatus != OperationalStatus.Up
+                    || ni.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                {
+                    continue;
+                }
+                total += ni.GetIPStatistics().BytesReceived;
+            }
+
+            var delta = total - _lastReceivedBytes;
+            _lastReceivedBytes = total;
+            // Counters reset when an interface goes down and up again; a negative
+            // delta is that reset, not traffic going backwards.
+            return Math.Max(0, delta);
+        }
+        catch (Exception ex)
+        {
+            // A missing counter must not stop the watchdog from probing.
+            Logging.SaveLog("TrafficWatchdog", ex);
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Sends one request through the local proxy. A tunnel that cannot carry it is
     /// not able to carry the user's traffic either.
     /// </summary>
+    /// <remarks>
+    /// The timeout is generous on purpose. This is a liveness check, not a speed
+    /// test: a download that saturates the link can make a small request take far
+    /// longer than the 5 s used for latency, and scoring that as dead reloaded the
+    /// config in the middle of the download. A tunnel that is actually wedged never
+    /// answers at all, so waiting longer costs nothing and the traffic check above
+    /// covers the busy case.
+    /// </remarks>
     private static async Task<bool> ProbeAsync(CancellationToken token)
     {
         try
@@ -115,8 +191,9 @@ public class TrafficWatchdogService
             var port = AppManager.Instance.GetLocalPort(EInboundProtocol.socks);
             var webProxy = new WebProxy($"socks5://{Global.Loopback}:{port}");
             // One sample, not the five a delay measurement takes: five samples with a
-            // five second timeout each would take longer than the probe interval.
-            var quality = await ConnectionHandler.GetRealPingQuality(webProxy, 1, token).ConfigureAwait(false);
+            // timeout each would take longer than the probe interval.
+            var quality = await ConnectionHandler.GetRealPingQuality(webProxy, 1, token, ProbeTimeout)
+                .ConfigureAwait(false);
             return quality.Median > 0;
         }
         catch (OperationCanceledException) when (token.IsCancellationRequested)

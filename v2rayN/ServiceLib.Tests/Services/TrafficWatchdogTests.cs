@@ -12,7 +12,7 @@ public class TrafficWatchdogTests
 
         for (var i = 0; i < 20; i++)
         {
-            await watchdog.Tick(tunnelOk: true).Should().BeFalse();
+            await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
         }
     }
 
@@ -26,14 +26,56 @@ public class TrafficWatchdogTests
         var watchdog = new TrafficWatchdog(failuresBeforeReload: 3);
 
         // It was working.
-        await watchdog.Tick(tunnelOk: true).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
 
         // It stopped. Not yet -- the failure has to repeat.
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
 
         // The third failure in a row is a wedged tunnel.
-        await watchdog.Tick(tunnelOk: false).Should().BeTrue();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeTrue();
+    }
+
+    /// <summary>
+    /// The bug the user hit next: a download saturated the link, the probe timed out,
+    /// and the config was reloaded mid-download. Bytes arriving are proof the tunnel
+    /// works, so a failed probe while traffic flows must never count as a stall.
+    /// </summary>
+    [Test]
+    public async Task AProbeFailureDuringADownloadNeverTriggersAReload()
+    {
+        var watchdog = new TrafficWatchdog(failuresBeforeReload: 3);
+
+        // The tunnel worked before the download started.
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
+
+        // The link is saturated: every probe times out, but data is arriving.
+        for (var i = 0; i < 20; i++)
+        {
+            await watchdog.Tick(tunnelOk: false, trafficFlowing: true).Should().BeFalse();
+        }
+    }
+
+    /// <summary>
+    /// Traffic must also clear a streak that was already building, so a link that
+    /// recovers mid-countdown is not reloaded for failures that are already stale.
+    /// </summary>
+    [Test]
+    public async Task TrafficClearsAnExistingFailureStreak()
+    {
+        var watchdog = new TrafficWatchdog(failuresBeforeReload: 3);
+
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+
+        // Data starts flowing: the two failures are stale, not a countdown.
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: true).Should().BeFalse();
+
+        // A real stall now has to build up from zero.
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeTrue();
     }
 
     /// <summary>
@@ -45,13 +87,13 @@ public class TrafficWatchdogTests
     {
         var watchdog = new TrafficWatchdog(failuresBeforeReload: 2);
 
-        await watchdog.Tick(tunnelOk: true).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeTrue();
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeTrue();
 
         // Still down, but the reload is already in flight.
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
     }
 
     /// <summary>
@@ -63,17 +105,17 @@ public class TrafficWatchdogTests
     {
         var watchdog = new TrafficWatchdog(failuresBeforeReload: 3);
 
-        await watchdog.Tick(tunnelOk: true).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
 
         // It answers again: the streak is over.
-        await watchdog.Tick(tunnelOk: true).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
 
         // A new stall has to build up again from zero.
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeTrue();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeTrue();
     }
 
     /// <summary>
@@ -87,7 +129,7 @@ public class TrafficWatchdogTests
 
         for (var i = 0; i < 20; i++)
         {
-            await watchdog.Tick(tunnelOk: false).Should().BeFalse();
+            await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
         }
     }
 
@@ -100,19 +142,19 @@ public class TrafficWatchdogTests
     {
         var watchdog = new TrafficWatchdog(failuresBeforeReload: 2);
 
-        await watchdog.Tick(tunnelOk: true).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeTrue();
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeTrue();
 
         // The reload is in flight and the core is coming up: failures are ignored.
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
 
         // It came up: the watchdog is armed again.
-        await watchdog.Tick(tunnelOk: true).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: true, trafficFlowing: false).Should().BeFalse();
 
         // And a fresh stall is caught again.
-        await watchdog.Tick(tunnelOk: false).Should().BeFalse();
-        await watchdog.Tick(tunnelOk: false).Should().BeTrue();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeFalse();
+        await watchdog.Tick(tunnelOk: false, trafficFlowing: false).Should().BeTrue();
     }
 }
