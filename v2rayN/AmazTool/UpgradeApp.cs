@@ -47,6 +47,13 @@ internal class UpgradeApp
             var splitKey = "/";
 
             using var archive = ZipFile.OpenRead(fileName);
+            // NiN packages keep their files at the zip root. Upstream zips them
+            // inside a version folder and unconditionally dropped each entry's
+            // first segment, which for a flat zip skipped the executables and
+            // relocated the bin folders -- the update replaced nothing and the
+            // app restarted on the old version. Only strip a segment when the
+            // whole zip really is wrapped in one top-level folder.
+            var wrapper = FindWrapperFolder(archive.Entries);
             foreach (var entry in archive.Entries)
             {
                 try
@@ -58,13 +65,9 @@ internal class UpgradeApp
 
                     Console.WriteLine(entry.FullName);
 
-                    var lst = entry.FullName.Split(splitKey);
-                    if (lst.Length == 1)
-                    {
-                        continue;
-                    }
-
-                    var fullName = string.Join(splitKey, lst[1..lst.Length]);
+                    var fullName = wrapper.Length > 0
+                        ? entry.FullName[(wrapper.Length + splitKey.Length)..]
+                        : entry.FullName;
 
                     if (string.Equals(Utils.GetExePath(), Utils.GetPath(fullName), StringComparison.OrdinalIgnoreCase))
                     {
@@ -104,6 +107,45 @@ internal class UpgradeApp
         Utils.Waiting(2);
 
         Utils.StartV2RayN();
+    }
+
+    /// <summary>
+    /// Returns the single top-level folder that wraps every file in the archive,
+    /// or an empty string when the zip is flat. A zip whose files sit at the root
+    /// has no wrapper: treating its first segments as one would skip the
+    /// executables and move the bin folders to the wrong place.
+    /// </summary>
+    private static string FindWrapperFolder(IEnumerable<ZipArchiveEntry>? entries)
+    {
+        if (entries is null)
+        {
+            return string.Empty;
+        }
+        string? wrapper = null;
+        foreach (var entry in entries)
+        {
+            if (entry.Length == 0)
+            {
+                continue;
+            }
+            var idx = entry.FullName.IndexOf('/');
+            if (idx < 0)
+            {
+                // A file at the zip root means the zip is flat: no wrapper.
+                return string.Empty;
+            }
+            var first = entry.FullName[..idx];
+            if (wrapper == null)
+            {
+                wrapper = first;
+            }
+            else if (wrapper != first)
+            {
+                // Several top-level folders: there is no single wrapper.
+                return string.Empty;
+            }
+        }
+        return wrapper ?? string.Empty;
     }
 
     private static bool TryExtractToFile(ZipArchiveEntry entry, string outputPath)
