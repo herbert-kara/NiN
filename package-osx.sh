@@ -20,6 +20,10 @@ mkdir -p "$OutputPath/bin/xray"
 cp -f xray-core/xray "$OutputPath/bin/xray/xray"
 chmod +x "$OutputPath/bin/xray/xray"
 
+# PattN: bundle patterniha/Aether in bin/aether and Psiphon's server list in bin (package-aether.sh); a failed checksum
+# or signature check fails the package, so a broken or foreign download never ships
+bash "$(cd "$(dirname "$0")" && pwd)/package-aether.sh" "$Arch" "$OutputPath/bin" || exit 1
+
 # PattN: bundle Chocolate4U geo files
 wget -nv -O "$OutputPath/bin/geosite.dat" "https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geosite.dat"
 wget -nv -O "$OutputPath/bin/geoip.dat" "https://github.com/Chocolate4U/Iran-v2ray-rules/releases/latest/download/geoip.dat"

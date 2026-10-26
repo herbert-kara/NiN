@@ -219,7 +219,8 @@ public partial class StatusBarViewModel : MyReactiveObject
         await ConfigHandler.InitBuiltinRouting(_config);
         await RefreshRoutingsMenu();
         await InboundDisplayStatus();
-        await ChangeSystemProxyAsync(_config.SystemProxyItem.SysProxyType, true);
+        // The view refreshes its icon on initialization; interaction handlers are not registered yet.
+        await ChangeSystemProxyAsync(_config.SystemProxyItem.SysProxyType, false);
 
         BlRouting = true;
     }
@@ -323,6 +324,15 @@ public partial class StatusBarViewModel : MyReactiveObject
         }
 
         await TestServerAvailabilitySub(ResUI.Speedtesting);
+
+        // PattN: an Aether core still connecting is waited for within a test's budget, and reported rather than failed
+        // when it still connects or is gone by then (critique 20, PattNG measureV2rayDelay)
+        if (await AetherCoreManager.Instance.AwaitTestableAsync() is { } aetherNotReady)
+        {
+            NoticeManager.Instance.SendMessageEx(aetherNotReady);
+            await TestServerAvailabilitySub(aetherNotReady);
+            return new AvailabilityCheckResult(-1, Global.None);
+        }
 
         var result = await Task.Run(ConnectionHandler.RunAvailabilityCheck);
         var msg = string.Format(ResUI.TestMeOutput, result.Time, result.Ip);

@@ -136,6 +136,59 @@ public static class ConnectionHandler
         }
 
     /// <summary>
+    /// PattN: the real ping of a profile that runs on an Aether core, within <paramref name="timeout" />, what is left of
+    /// its test's budget (design 2.12.2, PattNG AetherDelayTester.requestDelay): the best of up to two requests for
+    /// <paramref name="url" /> through <paramref name="webProxy" />, the second on the connection of the first, each given
+    /// what is left, none started with less than a second left (<see cref="AetherDelayTester.BestOfAttemptsAsync" />).
+    /// Only an answer of 200 or 204 counts. -1 when none was answered in time; a cancellation of
+    /// <paramref name="cancellationToken" /> throws <see cref="OperationCanceledException" />.
+    /// </summary>
+    public static async Task<int> GetRealPingTime(IWebProxy? webProxy, string? url, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("http" or "https"))
+        {
+            return -1;
+        }
+        var budget = Stopwatch.StartNew();
+        using var client = new HttpClient(new SocketsHttpHandler
+        {
+            Proxy = webProxy,
+            UseProxy = webProxy != null,
+            // The SOCKS handshake is part of the connect; the time left bounds it as it bounds the request.
+            ConnectTimeout = timeout > TimeSpan.Zero ? timeout : TimeSpan.FromMilliseconds(1),
+        })
+        {
+            Timeout = Timeout.InfiniteTimeSpan,
+        };
+        return await AetherDelayTester.BestOfAttemptsAsync(
+            () => timeout - budget.Elapsed,
+            async (left, ct) =>
+            {
+                using var attempt = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                attempt.CancelAfter(left);
+                var timer = Stopwatch.StartNew();
+                try
+                {
+                    using var response = await client.GetAsync(uri, attempt.Token).ConfigureAwait(false);
+                    // At least 1 ms: 0 is what a test left untested stores.
+                    return response.StatusCode is HttpStatusCode.OK or HttpStatusCode.NoContent
+                        ? Math.Max(1, (int)timer.ElapsedMilliseconds)
+                        : -1;
+                }
+                catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+                {
+                    // Not answered within what was left.
+                    return -1;
+                }
+                catch (Exception ex) when (ex is HttpRequestException or IOException or SocketException)
+                {
+                    return -1;
+                }
+            },
+            cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
     /// Gets IP and country information through specified proxy.
     /// Tries the configured URL first, then the built-in fallbacks: a single
     /// blocked endpoint used to leave the whole column "none" and the exit-country

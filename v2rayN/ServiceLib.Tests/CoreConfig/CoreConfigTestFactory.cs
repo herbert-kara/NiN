@@ -1,8 +1,3 @@
-using System.Reflection;
-using ServiceLib.Enums;
-using ServiceLib.Manager;
-using ServiceLib.Models;
-
 namespace ServiceLib.Tests.CoreConfig;
 
 internal static class CoreConfigTestFactory
@@ -193,6 +188,28 @@ internal static class CoreConfigTestFactory
             StreamSecurity = string.Empty,
             Subid = string.Empty,
         };
+    }
+
+    // PattN: an Aether profile as the editor stores it: no endpoint unless given (its core scans), Xray to run it, and
+    // the Aether settings of ProtocolExtraItem; protocol is the stored type (masque, wg, gool, mim, wg-over-masque).
+    public static ProfileItem CreateAetherNode(string indexId, string remarks, string protocol = "masque",
+        Func<ProtocolExtraItem, ProtocolExtraItem>? extra = null, string address = "", int port = 0)
+    {
+        var node = new ProfileItem
+        {
+            IndexId = indexId,
+            ConfigType = EConfigType.Aether,
+            CoreType = ECoreType.Xray,
+            Remarks = remarks,
+            Address = address,
+            Port = port,
+            Network = Global.DefaultNetwork,
+            StreamSecurity = string.Empty,
+            Subid = string.Empty,
+        };
+        var protocolExtra = new ProtocolExtraItem { AetherProtocol = protocol };
+        node.SetProtocolExtra(extra == null ? protocolExtra : extra(protocolExtra));
+        return node;
     }
 
     public static ProfileItem CreatePolicyGroupNode(ECoreType coreType, string indexId, string remarks,

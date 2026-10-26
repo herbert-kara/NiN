@@ -481,6 +481,9 @@ stage_runtime_assets() {
     echo "[*] --netcore specified: use separate core + rules."
     populate_assets_netcore_mode "$outroot" "$rid"
   fi
+
+  # PattN: no Aether core and no Psiphon server list here: patterniha/Aether publishes no loong64 archive
+  # (package-aether.sh), and PattN offers no Aether core on this system
 }
 
 describe_target() {

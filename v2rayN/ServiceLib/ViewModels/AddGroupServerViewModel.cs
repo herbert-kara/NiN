@@ -243,6 +243,15 @@ public partial class AddGroupServerViewModel : MyReactiveObject, ICloseable
 
         var protocolExtra = GetUpdatedProtocolExtra();
 
+        // PattN: sing-box runs no Aether profile, and a chain can have one, a profile picked twice counted twice
+        var aetherProblem = AetherMembers.SaveProblem(SelectedSource.ConfigType, SelectedSource.CoreType.Value,
+            await AetherMembers.EditorMembersAsync(ChildItemsObs, protocolExtra));
+        if (aetherProblem != null)
+        {
+            NoticeManager.Instance.Enqueue(aetherProblem);
+            return;
+        }
+
         SelectedSource.SetProtocolExtra(protocolExtra);
 
         if (await ConfigHandler.AddServerCommon(_config, SelectedSource) == 0)

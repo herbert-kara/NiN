@@ -52,7 +52,7 @@ public class CoreConfigV2rayServiceTests
             .Select(item => item!.GetValue<string>())
             .Should().BeEquivalentTo(["a=1", "b=2"]);
     }
- 
+
     [Test]
     public async Task GenerateClientConfigContent_PolicyGroup_ShouldExpandChildrenAndBuildBalancer()
     {
@@ -717,10 +717,11 @@ public class CoreConfigV2rayServiceTests
     public async Task GenerateClientConfigContent_Tun_ShouldRouteIPv6IntoTunnel(bool enableIPv6Address)
     {
         var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, enableIPv6Address);
+        config.TunModeItem.StrictRoute = true;
         CoreConfigTestFactory.BindAppManagerConfig(config);
 
         var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
-        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray) with { IsWindows = false };
 
         var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
 
@@ -732,18 +733,105 @@ public class CoreConfigV2rayServiceTests
         await tunInbound!.settings.autoSystemRoutingTable.Should().Contain("0.0.0.0/0");
         await tunInbound.settings.autoSystemRoutingTable.Should().Contain("::/0");
 
-        // EnableIPv6Address governs the interface address only, never the routing table.
+        // PattN: off Windows, strict route adds no leak block, so nothing stops IPv6 outside the TUN: a host with
+        // a global IPv6 address routes ::/0 either way, and EnableIPv6Address governs the interface address alone.
         await tunInbound.settings.gateway.Should().HaveCount(enableIPv6Address ? 2 : 1);
     }
 
     [Test]
-    [Arguments(true)]
     [Arguments(false)]
-    public async Task GenerateClientConfigContent_Tun_ShouldSkipIPv6RouteWithoutGlobalIPv6(bool enableIPv6Address)
+    [Arguments(true)]
+    public async Task GenerateClientConfigContent_Tun_WindowsStrictRoute_ShouldRouteIPv6OnlyWhenEnabled(bool enableIPv6Address)
+    {
+        // PattN: on Windows with strict route, misconfigtun blocks an IP version that has no route into the TUN,
+        // so with EnableIPv6Address off IPv6 is blocked rather than routed in, even on a host with a global
+        // IPv6 address; with it on, IPv6 goes into the TUN.
+        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, enableIPv6Address);
+        config.TunModeItem.StrictRoute = true;
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray, hasGlobalIPv6Address: true) with { IsWindows = true };
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var cfg = JsonUtils.Deserialize<V2rayConfig>(result.Data!.ToString())!;
+        var tunInbound = cfg.inbounds.First(i => i.protocol == "tun");
+
+        await tunInbound.settings.autoSystemWfpBlockLeak.Should().Contain("misconfigtun");
+        await tunInbound.settings.autoSystemRoutingTable.Should().Contain("0.0.0.0/0");
+        var ipv6Routes = tunInbound.settings.autoSystemRoutingTable!.Where(x => x.Contains(':')).ToList();
+        await ipv6Routes.Should().HaveCount(enableIPv6Address ? 1 : 0);
+        await tunInbound.settings.gateway.Should().HaveCount(enableIPv6Address ? 2 : 1);
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_Tun_WindowsWithoutStrictRoute_ShouldRouteIPv6WithGlobalIPv6()
+    {
+        // Without strict route nothing blocks IPv6 outside the TUN, so a host with a global IPv6 address keeps
+        // ::/0 even with EnableIPv6Address off, or its IPv6 would bypass the tunnel.
+        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, enableIPv6Address: false);
+        config.TunModeItem.StrictRoute = false;
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray, hasGlobalIPv6Address: true) with { IsWindows = true };
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var cfg = JsonUtils.Deserialize<V2rayConfig>(result.Data!.ToString())!;
+        var tunInbound = cfg.inbounds.First(i => i.protocol == "tun");
+
+        await tunInbound.settings.autoSystemWfpBlockLeak.Should().BeNull();
+        await tunInbound.settings.autoSystemRoutingTable.Should().Contain("::/0");
+    }
+
+    [Test]
+    [Arguments(true, true, true, false)] // Windows strict route: misconfigtun blocks the IPv6 an interface still has
+    [Arguments(true, true, true, true)]
+    [Arguments(true, false, false, false)] // no global IPv6 address: nothing to bypass the TUN
+    [Arguments(false, true, false, true)]
+    [Arguments(true, false, true, false)] // a global IPv6 address that nothing would block keeps ::/0
+    [Arguments(false, true, true, true)]
+    public async Task GenerateClientConfigContent_Tun_IPv6DisabledByOs_ShouldTakeNoIPv6UnlessItWouldBypass(
+        bool isWindows, bool strictRoute, bool hasGlobalIPv6Address, bool excludeAddresses)
+    {
+        // PattN: where the OS keeps IPv6 off on new interfaces, a TUN asked for IPv6 does not start, so it gets no IPv6
+        // address even with EnableIPv6Address on, and no IPv6 route unless a global IPv6 address that an existing
+        // interface still has would bypass it: outside Windows strict route, ::/0 then stays, and the TUN fails to
+        // start rather than let that IPv6 out.
+        var config = excludeAddresses
+            ? CoreConfigTestFactory.CreateConfigWithTunRouteExcludeAddress(ECoreType.Xray)
+            : CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, enableIPv6Address: true);
+        config.TunModeItem.EnableIPv6Address = true;
+        config.TunModeItem.StrictRoute = strictRoute;
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray, hasGlobalIPv6Address)
+            with { IsWindows = isWindows, IsIPv6DisabledByOs = true };
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var cfg = JsonUtils.Deserialize<V2rayConfig>(result.Data!.ToString())!;
+        var tunInbound = cfg.inbounds.First(i => i.protocol == "tun");
+
+        var ipv6Routes = tunInbound.settings.autoSystemRoutingTable!.Where(x => x.Contains(':')).ToList();
+        await ipv6Routes.Any().Should().BeEqualTo(hasGlobalIPv6Address && !(isWindows && strictRoute));
+        await tunInbound.settings.gateway.Should().HaveCount(1);
+        var misconfigTun = tunInbound.settings.autoSystemWfpBlockLeak?.Contains("misconfigtun") == true;
+        await misconfigTun.Should().BeEqualTo(isWindows && strictRoute);
+    }
+
+    [Test]
+    public async Task GenerateClientConfigContent_Tun_ShouldSkipIPv6RouteWithoutGlobalIPv6()
     {
         // A host without a global IPv6 address has no IPv6 traffic that could bypass the tunnel,
         // while ::/0 would pull IPv6 attempts into a tunnel they cannot leave.
-        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, enableIPv6Address);
+        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, enableIPv6Address: false);
         CoreConfigTestFactory.BindAppManagerConfig(config);
 
         var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
@@ -762,13 +850,14 @@ public class CoreConfigV2rayServiceTests
     }
 
     [Test]
-    public async Task GenerateClientConfigContent_Tun_ShouldEnableAutoSystemDns()
+    public async Task GenerateClientConfigContent_Tun_ShouldRouteIPv6WhenEnabledWithoutGlobalIPv6()
     {
-        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, false);
+        // Hosts behind NAT66 hold only ULA addresses, so EnableIPv6Address must still route ::/0.
+        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, enableIPv6Address: true);
         CoreConfigTestFactory.BindAppManagerConfig(config);
 
         var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
-        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray);
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray, hasGlobalIPv6Address: false);
 
         var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
 
@@ -777,14 +866,38 @@ public class CoreConfigV2rayServiceTests
         var tunInbound = cfg.inbounds.FirstOrDefault(i => i.protocol == "tun");
 
         await tunInbound.Should().NotBeNull();
-        await tunInbound!.settings.autoSystemDNS.Should().BeEqualTo(true);
+        await tunInbound!.settings.autoSystemRoutingTable.Should().Contain("::/0");
+    }
 
-        // Xray-core takes over system DNS only when it can derive an address from an IPv4 gateway
-        // and a query to that address on port 53 is routed to a "dns" outbound.
+    [Test]
+    public async Task GenerateClientConfigContent_Tun_ShouldSetAutoSystemDnsToGatewayOnLinux()
+    {
+        var config = CoreConfigTestFactory.CreateConfigWithTun(ECoreType.Xray, false);
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray) with { IsLinux = true };
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var cfg = JsonUtils.Deserialize<V2rayConfig>(result.Data!.ToString())!;
+        var tunInbound = cfg.inbounds.FirstOrDefault(i => i.protocol == "tun");
+
+        await tunInbound.Should().NotBeNull();
+        await tunInbound!.settings.autoSystemDnsToGateway.Should().BeEqualTo(true);
+
+        // Xray-core hands the system resolver an address derived from the gateway, and does not
+        // start unless a query to that address on port 53 is routed to a "dns" outbound.
         await tunInbound.settings.gateway.Should().Contain(x => !x.Contains(':'));
         await cfg.routing.rules.Should().Contain(r =>
             r.port == "53" && r.inboundTag != null && r.inboundTag.Contains("tun") && r.outboundTag == Global.DnsOutboundTag);
         await cfg.outbounds.Should().Contain(o => o.tag == Global.DnsOutboundTag && o.protocol == "dns");
+
+        // The option is Linux-only in Xray-core, so other systems do not get it.
+        var otherResult = new CoreConfigV2rayService(context with { IsLinux = false }).GenerateClientConfigContent();
+        var otherCfg = JsonUtils.Deserialize<V2rayConfig>(otherResult.Data!.ToString())!;
+        await otherCfg.inbounds.First(i => i.protocol == "tun").settings.autoSystemDnsToGateway.Should().BeNull();
     }
 
     [Test]
@@ -827,6 +940,33 @@ public class CoreConfigV2rayServiceTests
 
         await tunInbound.Should().NotBeNull();
         await tunInbound!.settings.autoSystemRoutingTable.Should().Contain(x => x.Contains(':'));
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task GenerateClientConfigContent_TunRouteExcludeAddress_WindowsStrictRoute_ShouldRouteIPv6OnlyWhenEnabled(bool enableIPv6Address)
+    {
+        // PattN: RouteExcludeAddress only cuts ranges out of the TUN routes, so on Windows with strict route IPv6
+        // still gets no route, and misconfigtun blocks it, unless EnableIPv6Address is on.
+        var config = CoreConfigTestFactory.CreateConfigWithTunRouteExcludeAddress(ECoreType.Xray);
+        config.TunModeItem.EnableIPv6Address = enableIPv6Address;
+        config.TunModeItem.StrictRoute = true;
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.Xray, "n-main", "main");
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.Xray, hasGlobalIPv6Address: true) with { IsWindows = true };
+
+        var result = new CoreConfigV2rayService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue();
+        var cfg = JsonUtils.Deserialize<V2rayConfig>(result.Data!.ToString())!;
+        var tunInbound = cfg.inbounds.First(i => i.protocol == "tun");
+
+        await tunInbound.settings.autoSystemWfpBlockLeak.Should().Contain("misconfigtun");
+        await tunInbound.settings.autoSystemRoutingTable.Should().Contain("10.0.0.2/31");
+        var ipv6Routes = tunInbound.settings.autoSystemRoutingTable!.Where(x => x.Contains(':')).ToList();
+        await ipv6Routes.Any().Should().BeEqualTo(enableIPv6Address);
     }
 
     [Test]

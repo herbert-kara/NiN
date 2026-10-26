@@ -625,6 +625,21 @@ public partial class ProfilesViewModel : MyReactiveObject
                         TotalUp = t22 == null ? "" : Utils.HumanFy(t22.TotalUp)
                     }).OrderBy(t => t.Sort).ToList();
 
+        // PattN: an Aether row names its tunnel from the outside in, with the WARP protocol as the editor names it, in
+        // the Network column (design 3.8, PattNG serverProtocolDescription); its profiles are read in one batch.
+        var aetherRows = lstModel.Where(t => t.ConfigType == EConfigType.Aether).ToList();
+        if (aetherRows.Count > 0)
+        {
+            var aetherProfiles = await AppManager.Instance.GetProfileItemsByIndexIdsAsMap(aetherRows.Select(t => t.IndexId));
+            foreach (var row in aetherRows)
+            {
+                if (aetherProfiles.TryGetValue(row.IndexId, out var profile))
+                {
+                    row.Network = AetherCore.Of(profile, AetherPorts.DefaultListenPort).PathLabel(AetherLabels.ProtocolLabel);
+                }
+            }
+        }
+
         return lstModel;
     }
 
@@ -677,6 +692,12 @@ public partial class ProfilesViewModel : MyReactiveObject
         {
             var addGroupServerViewModel = new AddGroupServerViewModel(item);
             ret = await AppManager.Instance.WindowDialog.ShowDialogAsync(addGroupServerViewModel);
+        }
+        // PattN: an Aether profile opens its own editor (design 3.1)
+        else if (eConfigType == EConfigType.Aether)
+        {
+            var addServerAetherViewModel = new AddServerAetherViewModel(item);
+            ret = await AppManager.Instance.WindowDialog.ShowDialogAsync(addServerAetherViewModel);
         }
         else
         {

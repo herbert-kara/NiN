@@ -18,6 +18,15 @@
     ShowInTaskbar="True"
     WindowStartupLocation="CenterScreen"
     mc:Ignorable="d">
+    <Window.Styles>
+        <!-- Keep the log selected; hide only the strip when it has no other tabs. -->
+        <Style Selector="TabControl.logPane /template/ ItemsPresenter#PART_ItemsPresenter">
+            <Setter Property="IsVisible" Value="{Binding ShowClashUI}" />
+        </Style>
+        <Style Selector="TabControl.logPane /template/ Border#PART_BorderSeparator">
+            <Setter Property="IsVisible" Value="{Binding ShowClashUI}" />
+        </Style>
+    </Window.Styles>
     <dialogHost:DialogHost CloseOnClickAway="True" DisableOpeningAnimation="True">
         <DockPanel>
             <DockPanel Margin="{StaticResource Margin8}" DockPanel.Dock="Top">
@@ -45,12 +54,18 @@
                         <MenuItem x:Name="menuAddTrojanServer" Header="{x:Static resx:ResUI.menuAddTrojanServer}" />
                         <MenuItem x:Name="menuAddHysteria2Server" Header="{x:Static resx:ResUI.menuAddHysteria2Server}" />
                         <MenuItem x:Name="menuAddWireguardServer" Header="{x:Static resx:ResUI.menuAddWireguardServer}" />
+                        <MenuItem x:Name="menuAddMasqueServer" Header="{x:Static resx:ResUI.menuAddMasqueServer}" />
                         <MenuItem x:Name="menuAddSocksServer" Header="{x:Static resx:ResUI.menuAddSocksServer}" />
                         <MenuItem x:Name="menuAddHttpServer" Header="{x:Static resx:ResUI.menuAddHttpServer}" />
                         <Separator />
                         <MenuItem x:Name="menuAddTuicServer" Header="{x:Static resx:ResUI.menuAddTuicServer}" />
                         <MenuItem x:Name="menuAddAnytlsServer" Header="{x:Static resx:ResUI.menuAddAnytlsServer}" />
                         <MenuItem x:Name="menuAddNaiveServer" Header="{x:Static resx:ResUI.menuAddNaiveServer}" />
+                        <!--  PattN: "Add Aether config manually", last as in PattNG (design 3.5)  -->
+                        <Separator />
+                        <MenuItem x:Name="menuAddAetherServer" Header="{x:Static resx:ResUI.menuAddAetherServer}" />
+                        <!--  PattN: the WARP keys window, beside the Aether profiles that share the keys (design 3.4)  -->
+                        <MenuItem x:Name="menuAetherKeys" Header="{x:Static resx:ResUI.TbAetherRenewKey}" />
                     </MenuItem>
 
                     <MenuItem Header="{x:Static resx:ResUI.menuSubscription}">
@@ -124,6 +139,7 @@
                     <TabControl
                         x:Name="tabMain"
                         Grid.Column="2"
+                        Classes="logPane"
                         HorizontalContentAlignment="Left">
                         <TabItem x:Name="tabMsgView" Header="{x:Static resx:ResUI.MsgInformationTitle}" />
                         <TabItem x:Name="tabClashProxies" Header="{x:Static resx:ResUI.TbProxies}" />
@@ -139,6 +155,7 @@
                     <TabControl
                         x:Name="tabMain1"
                         Grid.Row="2"
+                        Classes="logPane"
                         TabStripPlacement="Left">
                         <TabItem x:Name="tabMsgView1" Header="{x:Static resx:ResUI.MsgInformationTitle}" />
                         <TabItem x:Name="tabClashProxies1" Header="{x:Static resx:ResUI.TbProxies}" />

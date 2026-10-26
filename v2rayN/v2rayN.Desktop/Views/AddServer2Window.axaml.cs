@@ -43,7 +43,8 @@ public partial class AddServer2Window : WindowBase<AddServer2ViewModel>
         if (profileItem.ConfigType is EConfigType.Custom)
         {
             Title = ResUI.menuAddCustomServer;
-            cmbCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN)).ToList();
+            // PattN: not the Aether core, which takes no configuration file
+            cmbCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN) && t != nameof(ECoreType.aether)).ToList();
             gridCustomServer.IsVisible = true;
             gridCustomOutbound.IsVisible = false;
         }

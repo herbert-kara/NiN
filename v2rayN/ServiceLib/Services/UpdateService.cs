@@ -111,7 +111,7 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
         return await CheckUpdateAsync(downloadHandle, type, checkPreRelease, blProxy, cancellationToken);
     }
 
-    public async Task<List<string>> CheckHasUpdateOnlyAll(bool preRelease, bool blProxy = true, CancellationToken cancellationToken = default)
+    public async Task<List<string>> CheckHasUpdateOnlyAll(bool blProxy = true, CancellationToken cancellationToken = default)
     {
         var msgs = new List<string>();
         foreach (var type in CoreInfoManager.Instance.GetCheckUpdateCoreTypes())
@@ -121,6 +121,7 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
                 continue;
             }
 
+            var preRelease = _config.CheckUpdateItem.CheckPreReleaseCoreTypes?.Contains(type.ToString()) ?? false;
             var result = await CheckHasUpdateOnly(type, preRelease, blProxy, cancellationToken);
             if (result.Success && result.Version != null)
             {
@@ -235,7 +236,9 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
     [GeneratedRegex(@"v?(?<version>\d+\.\d+\.\d+(?:-[0-9a-zA-Z.-]+)?(?:\+[0-9a-zA-Z.-]+)?)", RegexOptions.IgnoreCase)]
     private static partial Regex SemVerRegex();
 
-    private async Task<SemanticVersion> GetCoreVersion(ECoreType type, CancellationToken cancellationToken = default)
+    // PattN: with the reason, when Xray's copy could not be made equal to xray.exe to be asked (Windows): the check then
+    // gives that reason, in every caller, rather than offer an update for a version it could not read
+    private async Task<(SemanticVersion Version, string? Failure)> GetCoreVersion(ECoreType type, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -255,19 +258,36 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
             {
                 var msg = string.Format(ResUI.NotFoundCore, @"", "", "");
                 //ShowMsg(true, msg);
-                return new SemanticVersion("");
+                return (new SemanticVersion(""), null);
             }
 
-            var result = await Utils.GetCliWrapOutput(filePath, coreInfo.VersionArg, cancellationToken);
+            // PattN: Xray on Windows never runs as xray.exe, not even to tell its version: its copy is checked against
+            // xray.exe, made equal to it and asked, in one hold (CoreInfoManager.HoldXrayFilesAsync)
+            using var xrayFiles = coreInfo.CoreType == ECoreType.Xray && Utils.IsWindows()
+                ? await CoreInfoManager.HoldXrayFilesAsync()
+                : null;
+            filePath = CoreInfoManager.RunFileOf(coreInfo, filePath, out var runFailure);
+            if (filePath.IsNullOrEmpty())
+            {
+                return (new SemanticVersion(""), runFailure);
+            }
+
+            // PattN: an Xray that does not answer in time is stopped, rather than hold the files Xray's starts wait for
+            using var versionWait = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            if (xrayFiles != null)
+            {
+                versionWait.CancelAfter(TimeSpan.FromSeconds(10));
+            }
+            var result = await Utils.GetCliWrapOutput(filePath, coreInfo.VersionArg, versionWait.Token);
             var echo = result ?? "";
             var version = SemVerRegex().Match(echo).Groups["version"].Value;
-            return new SemanticVersion(version);
+            return (new SemanticVersion(version), null);
         }
         catch (Exception ex)
         {
             Logging.SaveLog(_tag, ex);
             await UpdateFunc(false, ex.Message);
-            return new SemanticVersion("");
+            return (new SemanticVersion(""), null);
         }
     }
 
@@ -287,8 +307,13 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
                 case ECoreType.Xray:
                 case ECoreType.v2fly_v5:
                 case ECoreType.mihomo:
+                case ECoreType.aether: // PattN: its download URLs name the tag as it is, v2.3.2
                     {
-                        curVersion = await GetCoreVersion(type, cancellationToken);
+                        (curVersion, var versionFailure) = await GetCoreVersion(type, cancellationToken);
+                        if (versionFailure != null)
+                        {
+                            return new UpdateResult(false, versionFailure);
+                        }
                         message = string.Format(ResUI.IsLatestCore, type, curVersion.ToStandardVersionString("v"));
                         url = string.Format(coreUrl, version);
                         break;
@@ -296,7 +321,11 @@ public partial class UpdateService(Config config, Func<bool, string, Task> updat
 
                 case ECoreType.sing_box:
                     {
-                        curVersion = await GetCoreVersion(type, cancellationToken);
+                        (curVersion, var versionFailure) = await GetCoreVersion(type, cancellationToken);
+                        if (versionFailure != null)
+                        {
+                            return new UpdateResult(false, versionFailure);
+                        }
                         message = string.Format(ResUI.IsLatestCore, type, curVersion.ToStandardVersionString("v"));
                         url = string.Format(coreUrl, version, version.ToString().RemovePrefix("v"));
                         break;

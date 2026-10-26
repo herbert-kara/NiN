@@ -8,6 +8,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:reactiveui="http://reactiveui.net"
     xmlns:resx="clr-namespace:ServiceLib.Resx;assembly=ServiceLib"
+    xmlns:views="clr-namespace:v2rayN.Views"
     xmlns:vms="clr-namespace:ServiceLib.ViewModels;assembly=ServiceLib"
     Title="{x:Static resx:ResUI.menuServers}"
     Width="900"
@@ -33,13 +34,13 @@
             Orientation="Horizontal">
             <Button
                 x:Name="btnSave"
-                Width="100"
+                MinWidth="100"
                 Content="{x:Static resx:ResUI.TbConfirm}"
                 IsDefault="True"
                 Style="{StaticResource DefButton}" />
             <Button
                 x:Name="btnCancel"
-                Width="100"
+                MinWidth="100"
                 Margin="{StaticResource MarginLeftRight8}"
                 Content="{x:Static resx:ResUI.TbCancel}"
                 IsCancel="true"
@@ -1000,6 +1001,89 @@
                         HorizontalAlignment="Left" />
                 </Grid>
 
+                <Grid
+                    x:Name="gridMasque"
+                    Grid.Row="2"
+                    Visibility="Collapsed">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ToolbarTextBlock}"
+                        Text="{x:Static resx:ResUI.TbUsername}" />
+                    <TextBox
+                        x:Name="txtId14"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}"
+                        Style="{StaticResource DefTextBox}" />
+
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ToolbarTextBlock}"
+                        Text="{x:Static resx:ResUI.TbId3}" />
+                    <TextBox
+                        x:Name="txtSecurity14"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}"
+                        Style="{StaticResource DefTextBox}" />
+
+                    <TextBlock
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ToolbarTextBlock}"
+                        Text="{x:Static resx:ResUI.TbPath}" />
+                    <TextBox
+                        x:Name="txtPath14"
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}"
+                        Style="{StaticResource DefTextBox}" />
+
+                    <TextBlock
+                        Grid.Row="4"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Style="{StaticResource ToolbarTextBlock}"
+                        Text="{x:Static resx:ResUI.TbHttpOutboundHeaders}" />
+                    <TextBox
+                        x:Name="txtHeaders14"
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}"
+                        HorizontalAlignment="Left"
+                        materialDesign:HintAssist.Hint="Header: Value"
+                        AcceptsReturn="True"
+                        MaxLines="12"
+                        MinLines="3"
+                        Style="{StaticResource MyOutlinedTextBox}"
+                        TextWrapping="Wrap" />
+                </Grid>
+
                 <Separator
                     x:Name="sepa2"
                     Grid.Row="3"
@@ -1400,6 +1484,12 @@
                         VerticalAlignment="Center"
                         Style="{StaticResource ToolbarTextBlock}"
                         Text="{x:Static resx:ResUI.TbFinalmask}" />
+                    <!--  PattN: the arrow of the finalMask presets and the name of the one the popup's text holds sit beside the popup, so  -->
+                    <!--  that both are in sight while it is closed (design 3.3); the popup is upstream's, its lines kept as they are  -->
+                    <StackPanel
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Orientation="Horizontal">
                     <materialDesign:PopupBox
                         Grid.Row="0"
                         Grid.Column="1"
@@ -1421,6 +1511,11 @@
                                 VerticalScrollBarVisibility="Auto" />
                         </StackPanel>
                     </materialDesign:PopupBox>
+                        <views:PresetField
+                            x:Name="presetFinalmask"
+                            VerticalAlignment="Center"
+                            ShowsText="False" />
+                    </StackPanel>
 
                     <TextBlock
                         Grid.Row="1"
@@ -1556,21 +1651,20 @@
                         Margin="{StaticResource Margin4}"
                         Style="{StaticResource DefComboBox}" />
 
+                    <!--  PattN: at the top, level with the preset field's text above the name of the preset it holds (design 3.3)  -->
                     <TextBlock
                         Grid.Row="4"
                         Grid.Column="0"
                         Margin="{StaticResource Margin4}"
-                        VerticalAlignment="Center"
+                        VerticalAlignment="Top"
                         Style="{StaticResource ToolbarTextBlock}"
                         Text="{x:Static resx:ResUI.TbCipherSuites}" />
-                    <TextBox
-                        x:Name="txtCipherSuites"
+                    <!--  PattN: cipherSuites as a preset field (design 3.3)  -->
+                    <views:PresetField
+                        x:Name="presetCipherSuites"
                         Grid.Row="4"
                         Grid.Column="1"
-                        Width="400"
-                        Margin="{StaticResource Margin4}"
-                        HorizontalAlignment="Left"
-                        Style="{StaticResource DefTextBox}" />
+                        HorizontalAlignment="Left" />
 
                     <TextBlock
                         Grid.Row="5"

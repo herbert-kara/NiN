@@ -89,9 +89,13 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
     {
         var lstSelected = await GetClearItem(actionType, selecteds);
         var completedIds = new ConcurrentDictionary<string, byte>();
+        // PattN: what needs an Aether core leaves the batch, and is tested one at a time after the rest (design 2.12.1)
+        List<ServerTestItem> lstAether = [];
 
         try
         {
+            // PattN: inside the try, so that a failed lookup of the stored profiles is logged and shown as the run's failure
+            lstAether = await AetherCandidates().TakeAsync(actionType, lstSelected);
             switch (actionType)
             {
                 case ESpeedActionType.Tcping:
@@ -115,11 +119,16 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
                         ct);
                     break;
             }
+            // PattN
+            await RunAetherTestsAsync(actionType, lstAether, completedIds, ct);
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
             _ = UpdateFunc("", ResUI.SpeedtestingStop);
             await SetTestResultAsync(lstSelected.Where(it => !completedIds.ContainsKey(it.IndexId)).ToList(),
+                actionType, ResUI.SpeedtestingSkip).ConfigureAwait(false);
+            // PattN: and those that need an Aether core
+            await SetTestResultAsync(lstAether.Where(it => !completedIds.ContainsKey(it.IndexId)).ToList(),
                 actionType, ResUI.SpeedtestingSkip).ConfigureAwait(false);
         }
         catch (Exception ex)
@@ -134,7 +143,8 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
         var lstSelected = new List<ServerTestItem>(selecteds.Count);
         var ids = selecteds.Where(it => !it.IndexId.IsNullOrEmpty()
             && it.ConfigType != EConfigType.Custom
-            && (it.ConfigType.IsComplexType() || it.Port > 0))
+            // PattN: an Aether profile left to the scanner has no port and is tested all the same (critique 21)
+            && (it.ConfigType.IsComplexType() || it.Port > 0 || it.ConfigType == EConfigType.Aether))
             .Select(it => it.IndexId)
             .ToList();
         var profileMap = await AppManager.Instance.GetProfileItemsByIndexIdsAsMap(ids);
@@ -146,7 +156,8 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
                 continue;
             }
 
-            if (!it.ConfigType.IsComplexType() && it.Port <= 0)
+            // PattN: but an Aether profile left to the scanner (critique 21)
+            if (!it.ConfigType.IsComplexType() && it.Port <= 0 && it.ConfigType != EConfigType.Aether)
             {
                 continue;
             }
@@ -210,6 +221,7 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
 
             var parallelOptions = new ParallelOptions
             {
+                MaxDegreeOfParallelism = lst.Count,
                 CancellationToken = ct,
             };
 
@@ -295,6 +307,7 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
 
             var parallelOptions = new ParallelOptions
             {
+                MaxDegreeOfParallelism = selecteds.Count,
                 CancellationToken = ct,
             };
 
@@ -385,6 +398,7 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
 
             var parallelOptions = new ParallelOptions
             {
+                MaxDegreeOfParallelism = selecteds.Count,
                 CancellationToken = ct,
             };
 
@@ -587,6 +601,10 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
             await clientSocket.ConnectAsync(endPoint, linkedCts.Token).ConfigureAwait(false);
             responseTime = (int)timer.ElapsedMilliseconds;
         }
+        catch
+        {
+            // Ignore
+        }
         finally
         {
             timer.Stop();
@@ -597,6 +615,12 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
     private List<List<ServerTestItem>> GetTestBatchItem(List<ServerTestItem> lstSelected, int pageSize)
     {
         List<List<ServerTestItem>> lstTest = [];
+        if (lstSelected.Count == 0)
+        {
+            return lstTest;
+        }
+
+        pageSize = Math.Max(pageSize, 1);
         var lst1 = lstSelected.Where(t => t.CoreType == ECoreType.Xray).ToList();
         var lst2 = lstSelected.Where(t => t.CoreType == ECoreType.sing_box).ToList();
 
@@ -625,4 +649,169 @@ public class SpeedtestService(Config config, Func<SpeedTestResult, Task> updateF
     {
         await _updateFunc?.Invoke(new() { IndexId = indexId, IpInfo = ip });
     }
+
+    #region PattN: Aether
+
+    private readonly AetherDelayTester? _aetherTester;
+
+    /// <summary>PattN: what tests the profiles that need an Aether core; PattN's own unless a test gives one on fakes.</summary>
+    public AetherDelayTester AetherTester
+    {
+        get => _aetherTester ?? AetherDelayTester.Default;
+        init => _aetherTester = value;
+    }
+
+    /// <summary>PattN: which profiles of a run need an Aether core; told from PattN's own database unless a test gives fakes.</summary>
+    public Func<AetherTestCandidates> AetherCandidates { get; init; } = AetherTestCandidates.FromDatabase;
+
+    /// <summary>
+    /// PattN (design 2.12.1): the tests of <paramref name="items" />, which need an Aether core, one at a time: every
+    /// core listens on the one Aether listen port, so a batch, one Xray for many profiles, cannot give each its own core
+    /// (<see cref="AetherDelayTester" />). A TCP ping probes the edge of an Aether profile instead; no UDP test is made.
+    /// </summary>
+    private async Task RunAetherTestsAsync(ESpeedActionType actionType, List<ServerTestItem> items,
+        ConcurrentDictionary<string, byte> completedIds, CancellationToken ct = default)
+    {
+        if (items.Count == 0)
+        {
+            return;
+        }
+        var downloadHandle = new DownloadService();
+        foreach (var it in items)
+        {
+            ct.ThrowIfCancellationRequested();
+            try
+            {
+                switch (actionType)
+                {
+                    case ESpeedActionType.Tcping:
+                        await DoAetherReachability(it, completedIds, ct);
+                        break;
+
+                    case ESpeedActionType.Realping:
+                        await DoAetherTest(it, null, completedIds, ct);
+                        break;
+
+                    case ESpeedActionType.Speedtest:
+                    case ESpeedActionType.Mixedtest:
+                        await DoAetherTest(it, downloadHandle, completedIds, ct);
+                        break;
+
+                    default:
+                        await UpdateFunc(it.IndexId, ResUI.SpeedtestingSkip);
+                        completedIds.TryAdd(it.IndexId, 0);
+                        break;
+                }
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                Logging.SaveLog(_tag, ex);
+                // Not left showing that it is being tested.
+                await UpdateFunc(it.IndexId, ResUI.SpeedtestingSkip);
+                completedIds.TryAdd(it.IndexId, 0);
+            }
+        }
+    }
+
+    /// <summary>
+    /// PattN: the latency test of <paramref name="it" /> through the tunnel it needs, and, with
+    /// <paramref name="downloadHandle" />, its download speed through the same tunnel before it is torn down. Whatever ends
+    /// the test, its row shows what came of it: the delay it measured, or else what the tester gave, an untested row with
+    /// its reason (critique 24); and a speed test that did not finish, because a session start ended the test, is skipped.
+    /// </summary>
+    private async Task DoAetherTest(ServerTestItem it, DownloadService? downloadHandle,
+        ConcurrentDictionary<string, byte> completedIds, CancellationToken ct = default)
+    {
+        var delayShown = false;
+        var speedDone = false;
+        var result = await AetherTester.MeasureAsync(it.Profile, async (port, left, token) =>
+        {
+            var webProxy = new WebProxy($"socks5://{Global.Loopback}:{port}");
+            var delay = await ConnectionHandler.GetRealPingTime(webProxy, _config.SpeedTestItem.SpeedPingTestUrl, left(), token);
+            await ShowAetherDelay(it, new AetherTestResult(delay));
+            delayShown = true;
+            try
+            {
+                await ShowAetherIpInfo(it, delay, webProxy, token);
+                if (downloadHandle != null)
+                {
+                    if (delay > 0)
+                    {
+                        it.Port = port;
+                        await DoSpeedTest(downloadHandle, it, completedIds, token);
+                    }
+                    else
+                    {
+                        await UpdateFunc(it.IndexId, "", ResUI.SpeedtestingSkip);
+                    }
+                    speedDone = true;
+                }
+            }
+            catch (OperationCanceledException) when (token.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                // As RunMixedTestAsync: the speed test's own timeout, or an IP lookup that failed, keeps the delay shown.
+                Logging.SaveLog(_tag, ex);
+                speedDone = true;
+            }
+            return delay;
+        }, ct);
+        if (!delayShown)
+        {
+            await ShowAetherDelay(it, result);
+            await ShowAetherIpInfo(it, result.Delay, null, ct);
+        }
+        if (downloadHandle != null && !speedDone)
+        {
+            await UpdateFunc(it.IndexId, "", ResUI.SpeedtestingSkip);
+        }
+        completedIds.TryAdd(it.IndexId, 0);
+    }
+
+    /// <summary>PattN: the TCP ping of an Aether profile: a connection to its edge, which a profile left to the scanner has not.</summary>
+    private async Task DoAetherReachability(ServerTestItem it, ConcurrentDictionary<string, byte> completedIds,
+        CancellationToken ct = default)
+    {
+        var delay = await AetherDelayTester.ReachabilityAsync(it.Profile, ct);
+        await ShowAetherDelay(it, delay == AetherDelayTester.Untested
+            ? AetherTestResult.Untested(ResUI.SpeedtestingSkip)
+            : new AetherTestResult(delay));
+        completedIds.TryAdd(it.IndexId, 0);
+    }
+
+    /// <summary>
+    /// PattN: stores and shows what an Aether test gave. An untested row shows why, never "0" (critique 24); 0 is stored,
+    /// which the list shows as nothing once it reads the results again.
+    /// </summary>
+    private async Task ShowAetherDelay(ServerTestItem it, AetherTestResult result)
+    {
+        ProfileExManager.Instance.SetTestDelay(it.IndexId, result.Delay);
+        ProfileExManager.Instance.SetTestQuality(it.IndexId, PingQuality.None, false);
+        await UpdateFunc(it.IndexId, result.IsUntested ? result.Reason ?? ResUI.SpeedtestingSkip : result.Delay.ToString());
+    }
+
+    /// <summary>PattN: the IP information of a profile that answered, through the tunnel it was measured through, as <see cref="DoRealPing" /> gets it.</summary>
+    private async Task ShowAetherIpInfo(ServerTestItem it, int delay, IWebProxy? webProxy, CancellationToken ct = default)
+    {
+        if (webProxy != null && !_config.UiItem.HideColumnIpInfo && delay > 0)
+        {
+            var ipInfo = await ConnectionHandler.GetIPInfo(webProxy, ct);
+            var ipStr = ipInfo?.ToString() ?? Global.None;
+            ProfileExManager.Instance.SetTestIpInfo(it.IndexId, ipStr);
+            await UpdateIpInfoFunc(it.IndexId, ipStr);
+        }
+        else
+        {
+            await UpdateIpInfoFunc(it.IndexId, ResUI.SpeedtestingSkip);
+        }
+    }
+
+    #endregion PattN: Aether
 }

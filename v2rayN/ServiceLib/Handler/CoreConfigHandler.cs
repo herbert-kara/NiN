@@ -97,25 +97,40 @@ public static class CoreConfigHandler
         {
             CoreType = coreType
         };
-        var builderResult = await CoreConfigContextBuilder.Build(config, dummyNode);
+        // PattN: a test drops the routing rules, so their targets never refuse it, nor log that they would (E2)
+        var builderResult = await CoreConfigContextBuilder.Build(config, dummyNode, refuseRuleTargets: false);
         var context = builderResult.Context;
+        // PattN: the profiles that cannot be resolved, which are left out of the test (N1)
+        var unresolved = new HashSet<ServerTestItem>(ReferenceEqualityComparer.Instance);
         foreach (var testItem in selecteds)
         {
             var node = testItem.Profile;
-            var (actNode, _) = await CoreConfigContextBuilder.ResolveNodeAsync(context, node, true);
+            var (actNode, resolved) = await CoreConfigContextBuilder.ResolveNodeAsync(context, node, true);
+            // PattN: a profile that cannot be resolved is not tested, as when upstream finds no outbound of it: a chain its
+            // subscription names a hop of that no profile has, or several have, is refused (N1), and the profile, which
+            // another one's chain may have put in the context, would otherwise be measured without that hop
+            if (!resolved.Success)
+            {
+                Logging.SaveLog($"Speedtest: '{node.Remarks}' is not tested: {string.Join("; ", resolved.Errors)}");
+                testItem.AllowTest = false;
+                unresolved.Add(testItem);
+                continue;
+            }
             if (node.IndexId == actNode.IndexId)
             {
                 continue;
             }
             context.ServerTestItemMap[node.IndexId] = actNode.IndexId;
         }
+        // PattN
+        var testable = unresolved.Count == 0 ? selecteds : selecteds.Where(testItem => !unresolved.Contains(testItem)).ToList();
         if (coreType == ECoreType.sing_box)
         {
-            result = new CoreConfigSingboxService(context).GenerateClientSpeedtestConfig(selecteds);
+            result = new CoreConfigSingboxService(context).GenerateClientSpeedtestConfig(testable);
         }
         else if (coreType == ECoreType.Xray)
         {
-            result = new CoreConfigV2rayService(context).GenerateClientSpeedtestConfig(selecteds);
+            result = new CoreConfigV2rayService(context).GenerateClientSpeedtestConfig(testable);
         }
         if (result.Success != true)
         {
@@ -130,6 +145,8 @@ public static class CoreConfigHandler
         var result = new RetResult();
         var initPort = AppManager.Instance.GetLocalPort(EInboundProtocol.speedtest);
         var port = Utils.GetFreePort(initPort + testItem.QueueNum);
+        // PattN: never a port the Aether core may take: the session's or a latency test's core may need it (design 2.12)
+        port = AetherPorts.Unreserved(port, AetherPorts.ListenPortOf(config.CoreBasicItem.AetherListenPort));
         testItem.Port = port;
 
         if (context.RunCoreType == ECoreType.sing_box)

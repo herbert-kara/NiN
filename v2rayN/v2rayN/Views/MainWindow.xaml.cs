@@ -46,6 +46,11 @@ public partial class MainWindow
             this.BindCommand(ViewModel, vm => vm.AddWireguardServerCmd, v => v.menuAddWireguardServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddAnytlsServerCmd, v => v.menuAddAnytlsServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddNaiveServerCmd, v => v.menuAddNaiveServer).DisposeWith(disposables);
+            this.BindCommand(ViewModel, vm => vm.AddMasqueServerCmd, v => v.menuAddMasqueServer).DisposeWith(disposables);
+            // PattN: "Add Aether config manually" (design 3.5)
+            this.BindCommand(ViewModel, vm => vm.AddAetherServerCmd, v => v.menuAddAetherServer).DisposeWith(disposables);
+            // PattN: the WARP keys window (design 3.4)
+            this.BindCommand(ViewModel, vm => vm.AetherKeysCmd, v => v.menuAetherKeys).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddCustomServerCmd, v => v.menuAddCustomServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddCustomOutboundServerCmd, v => v.menuAddCustomOutboundServer).DisposeWith(disposables);
             this.BindCommand(ViewModel, vm => vm.AddPolicyGroupServerCmd, v => v.menuAddPolicyGroupServer).DisposeWith(disposables);
@@ -443,6 +448,14 @@ public partial class MainWindow
             };
             item.Click += MenuItem_Click;
             menuHelp.Items.Add(item);
+        }
+
+        // PattN: the licenses of the Aether programs a release ships beside the core (critique 28), where it ships them
+        if (File.Exists(ServiceLib.Aether.AetherBinaries.BundledNoticeFile))
+        {
+            var notice = new MenuItem() { Header = ResUI.menuAetherLicenses };
+            notice.Click += (_, _) => ServiceLib.Aether.AetherBinaries.OpenNotice();
+            menuHelp.Items.Add(notice);
         }
     }
 

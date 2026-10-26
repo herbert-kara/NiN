@@ -12,7 +12,8 @@ public partial class SubEditWindow : WindowBase<SubEditViewModel>
         btnCancel.Click += (s, e) => Close();
 
         cmbConvertTarget.ItemsSource = Global.SubConvertTargets;
-        cmbCustomCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN)).ToList().AppendEmpty();
+        // PattN: not the Aether core, which takes no configuration file
+        cmbCustomCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN) && t != nameof(ECoreType.aether)).ToList().AppendEmpty();
 
         this.WhenActivated(disposables =>
         {

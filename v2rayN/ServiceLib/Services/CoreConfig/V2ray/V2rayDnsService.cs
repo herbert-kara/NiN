@@ -56,6 +56,8 @@ public partial class CoreConfigV2rayService
                         .ToHashSet();
                 _coreConfig.outbounds
                     .Where(t => xraySupportConfigTypeNames.Contains(t.protocol))
+                    // PattN: an Aether outbound keeps the default of where its traffic leaves, and the exit-node none
+                    .Where(t => !KeepsAetherTargetStrategy(t))
                     .ToList()
                     .ForEach(outbound =>
                     {
@@ -76,6 +78,8 @@ public partial class CoreConfigV2rayService
                         .ToHashSet();
                 _coreConfig.outbounds
                     .Where(t => xraySupportConfigTypeNames.Contains(t.protocol))
+                    // PattN: an Aether outbound dials its core on the loopback address
+                    .Where(t => !context.Aether.IsAetherOutbound(t))
                     .ToList()
                     .ForEach(outbound =>
                     {

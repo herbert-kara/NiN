@@ -113,6 +113,10 @@
                                     Height="{StaticResource MenuItemHeight}"
                                     Header="{x:Static resx:ResUI.menuAddWireguardServer}" />
                                 <MenuItem
+                                    x:Name="menuAddMasqueServer"
+                                    Height="{StaticResource MenuItemHeight}"
+                                    Header="{x:Static resx:ResUI.menuAddMasqueServer}" />
+                                <MenuItem
                                     x:Name="menuAddSocksServer"
                                     Height="{StaticResource MenuItemHeight}"
                                     Header="{x:Static resx:ResUI.menuAddSocksServer}" />
@@ -133,6 +137,17 @@
                                     x:Name="menuAddNaiveServer"
                                     Height="{StaticResource MenuItemHeight}"
                                     Header="{x:Static resx:ResUI.menuAddNaiveServer}" />
+                                <!--  PattN: "Add Aether config manually", last as in PattNG (design 3.5)  -->
+                                <Separator Margin="-40,5" />
+                                <MenuItem
+                                    x:Name="menuAddAetherServer"
+                                    Height="{StaticResource MenuItemHeight}"
+                                    Header="{x:Static resx:ResUI.menuAddAetherServer}" />
+                                <!--  PattN: the WARP keys window, beside the Aether profiles that share the keys (design 3.4)  -->
+                                <MenuItem
+                                    x:Name="menuAetherKeys"
+                                    Height="{StaticResource MenuItemHeight}"
+                                    Header="{x:Static resx:ResUI.TbAetherRenewKey}" />
                             </MenuItem>
                         </Menu>
                         <Separator />

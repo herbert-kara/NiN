@@ -36,5 +36,8 @@ public class Config
     public SimpleDNSItem SimpleDNSItem { get; set; }
     public HappyEyeballs4RayItem HappyEyeballs4RayItem { get; set; }
 
+    // PattN: the settings of Aether that belong to no profile
+    public AetherItem AetherItem { get; set; }
+
     #endregion other entities
 }

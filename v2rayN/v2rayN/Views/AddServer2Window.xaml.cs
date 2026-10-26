@@ -8,7 +8,8 @@ public partial class AddServer2Window
 
         Loaded += Window_Loaded;
 
-        cmbCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN)).ToList().AppendEmpty();
+        // PattN: not the Aether core, which takes no configuration file
+        cmbCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN) && t != nameof(ECoreType.aether)).ToList().AppendEmpty();
 
         this.WhenActivated(disposables =>
         {
@@ -46,7 +47,8 @@ public partial class AddServer2Window
         if (profileItem.ConfigType is EConfigType.Custom)
         {
             Title = ResUI.menuAddCustomServer;
-            cmbCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN)).ToList();
+            // PattN: not the Aether core, which takes no configuration file
+            cmbCoreType.ItemsSource = Utils.GetEnumNames<ECoreType>().Where(t => t != nameof(ECoreType.v2rayN) && t != nameof(ECoreType.aether)).ToList();
             gridCustomServer.Visibility = Visibility.Visible;
             gridCustomOutbound.Visibility = Visibility.Collapsed;
         }

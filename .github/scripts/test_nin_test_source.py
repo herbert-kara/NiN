@@ -1,4 +1,4 @@
-"""Catch TUnit assertion mistakes that only a C# compile would report.
+﻿"""Catch TUnit assertion mistakes that only a C# compile would report.
 
 Two have each cost a CI build in this repo:
 
@@ -22,6 +22,7 @@ KNOWN_ASSERTIONS = {
     "NotBeNullOrEmpty", "BeEquivalentTo", "BeLessThanOrEqualTo", "Contain",
     "NotContain", "ContainKey", "NotContainKey", "OnlyContain", "HaveCount",
     "StartWith", "EndWith", "All", "BeGreaterThan", "BeLessThan",
+    "NotBeEqualTo", "BeSameReferenceAs", "BeGreaterThanOrEqualTo", "Throw",
 }
 
 
@@ -126,17 +127,43 @@ class TunitAssertionTests(unittest.TestCase):
         The opposite of an earlier wrong guess: `await x.Should()` is required,
         and `await list.Count.Should()` is fine (upstream writes it that way).
         Assertions wrap across lines and may carry `.Because(...)`, so scan
-        statements rather than physical lines.
+        statements rather than physical lines. `Assert.That(x).Y()` is TUnit's
+        other assertion form and must be awaited too.
         """
+        assertion = re.compile(r"(?:\.Should\(\)|Assert\.That\([^\n]*\))\s*\.\w+\(")
         for path in test_sources():
             src = path.read_text(encoding="utf-8-sig")
-            for m in re.finditer(r"\.Should\(\)\s*\.\w+\(", src):
+            for m in assertion.finditer(src):
                 start = src.rfind("\n", 0, m.start()) + 1
                 line_no = src.count("\n", 0, start) + 1
                 # Walk back over continuation lines to the start of the statement.
+                # A ';' inside a lambda body must not cut the statement: follow
+                # brace depth and only stop on a top-level ';'.
                 head = src[:m.start()]
-                nl = head.rfind(";")
+                depth = 0
+                nl = -1
+                for k in range(len(head) - 1, -1, -1):
+                    ch = head[k]
+                    if ch == '}':
+                        depth += 1
+                    elif ch == '{':
+                        if depth == 0:
+                            break
+                        depth -= 1
+                    elif ch == ';' and depth == 0:
+                        nl = k
+                        break
                 stmt = head[nl + 1:] + src[m.start():m.end()]
+                # A statement may wrap: if what precedes the found ';' continues
+                # an expression (not a comment or a closing brace), pull it in.
+                while True:
+                    before = head[:nl].rstrip() if nl >= 0 else ""
+                    if (not before or before.endswith(";") or before.endswith("{")
+                            or before.endswith("}") or before.lstrip().startswith("//")):
+                        break
+                    prev_nl = before.rfind(";")
+                    stmt = before[prev_nl + 1:] + stmt
+                    nl = prev_nl
                 stmt = stmt.strip()
                 if stmt.lstrip().startswith("//"):
                     continue

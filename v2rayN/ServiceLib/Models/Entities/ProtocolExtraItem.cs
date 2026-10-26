@@ -46,6 +46,10 @@ public record ProtocolExtraItem
     public int? InsecureConcurrency { get; init; }
     public bool? NaiveQuic { get; init; }
 
+    // MASQUE
+    public string? MasquePath { get; init; }
+    public string? MasqueHeaders { get; init; }
+
     // group profile
     public string? GroupType { get; init; }
     public string? ChildItems { get; init; }
@@ -55,4 +59,37 @@ public record ProtocolExtraItem
 
     // custom outbound
     public bool? IsSingboxEndpoint { get; init; }
+
+    // PattN: aether (PattNG's aether* fields). Null always means the default, so a profile stores only what
+    // differs from the defaults and follows a default that changes later.
+    public string? AetherProtocol { get; init; }
+    public string? AetherTransport { get; init; }
+    public string? AetherMasqueSni { get; init; }
+    public string? AetherScanMode { get; init; }
+    public string? AetherObfuscation { get; init; }
+    public string? AetherFingerprint { get; init; }
+    public string? AetherIpVersion { get; init; }
+    public string? AetherWiwOuter { get; init; }
+    public string? AetherWiwInner { get; init; }
+    public bool? AetherFragment { get; init; }
+    public string? AetherFragmentSize { get; init; }
+    public string? AetherFragmentDelay { get; init; }
+    public bool? AetherEch { get; init; }
+    public string? AetherEchDns { get; init; }
+    public string? AetherEchDomain { get; init; }
+    public string? AetherDns { get; init; }
+    public string? AetherExitLoc { get; init; }
+    public string? AetherExitNode { get; init; }
+    public string? AetherPsiphon { get; init; }
+    public string? AetherPsiphonMode { get; init; }
+    public string? AetherPsiphonCdnIps { get; init; }
+    public string? AetherPsiphonCdnSni { get; init; }
+    public string? AetherPsiphonCdnSets { get; init; }
+    public string? AetherPsiphonRegion { get; init; }
+    public bool? AetherPsiphonBundledList { get; init; }
+    public string? AetherTor { get; init; }
+    public string? AetherTorBridges { get; init; }
+    public string? AetherTorBridgeLines { get; init; }
+    public string? AetherTorRelays { get; init; }
+    public string? AetherCommand { get; init; }
 }

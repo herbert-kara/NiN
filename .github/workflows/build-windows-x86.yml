@@ -99,7 +99,9 @@ jobs:
           New-Item -ItemType Directory -Force -Path "tmp/probe" | Out-Null
 
           Invoke-WebRequest -Uri "https://github.com/2dust/v2rayN-core-bin/raw/refs/heads/master/v2rayN-windows-64/bin/xray/xray.exe" -OutFile "tmp/probe/xray.exe"
-          $xrayOutput = (& "tmp/probe/xray.exe" version) -join "`n"
+          # PattN: Xray never runs as xray.exe on Windows, not even here: its copy p-xray-p.exe runs
+          Copy-Item "tmp/probe/xray.exe" "tmp/probe/p-xray-p.exe" -Force
+          $xrayOutput = (& "tmp/probe/p-xray-p.exe" version) -join "`n"
           Write-Host $xrayOutput
 
           $xrayMatch = [regex]::Match($xrayOutput, 'Xray\s+([0-9.]+)')
@@ -126,6 +128,8 @@ jobs:
           "xray_version=$xrayVer" >> $env:GITHUB_OUTPUT
           "sing_version=$singVer" >> $env:GITHUB_OUTPUT
 
+      # PattN: no Aether core and no Psiphon server list here: patterniha/Aether publishes no 32-bit Windows archive
+      # (package-aether.sh), and PattN offers no Aether core on such a system
       - name: Download x86 cores and rule assets
         shell: pwsh
         env:

@@ -142,9 +142,10 @@ public class DownloadServiceHeadersTests
         public async ValueTask DisposeAsync()
         {
             await _cancellation.CancelAsync();
-            _listener.Stop();
             try
             {
+                // PattN: the server ends on the cancellation before its listener stops: a listener stopped under a pending
+                // accept made it fail with ObjectDisposedException instead, now and then
                 await _serverTask;
             }
             catch (OperationCanceledException)
@@ -152,6 +153,7 @@ public class DownloadServiceHeadersTests
             }
             finally
             {
+                _listener.Stop();
                 _cancellation.Dispose();
             }
         }

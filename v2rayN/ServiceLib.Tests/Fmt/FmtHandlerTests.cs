@@ -19,6 +19,8 @@ public class FmtHandlerTests
         [EConfigType.WireGuard] = CreateWireguardProfile,
         [EConfigType.Anytls] = CreateAnytlsProfile,
         [EConfigType.Naive] = () => CreateNaiveProfile(false),
+        // PattN: the fork's Aether profiles; AetherFmtHandlerTests checks the rest of their links
+        [EConfigType.Aether] = CreateAetherProfile,
     };
 
     [Test]
@@ -510,6 +512,22 @@ public class FmtHandlerTests
 
         await resolved.Should().NotBeNull().Because($"uri: {uri}, msg: {msg}");
         return resolved!;
+    }
+
+    // PattN: an Aether profile pinned to an endpoint, as a link carries one.
+    private static ProfileItem CreateAetherProfile()
+    {
+        var item = new ProfileItem
+        {
+            ConfigType = EConfigType.Aether,
+            Remarks = "aether demo",
+            Address = "162.159.198.1",
+            Port = 443,
+        };
+
+        item.SetProtocolExtra(new ProtocolExtraItem { AetherProtocol = "masque", AetherScanMode = "verified", });
+
+        return item;
     }
 
     private static ProfileItem CreateVmessProfile()

@@ -136,6 +136,8 @@ public sealed class AppManager
             await ProfileExManager.Instance.SaveTo();
             await StatisticsManager.Instance.SaveTo();
             await CoreManager.Instance.CoreStop();
+            // PattN: a scan, latency test or WARP key run of the Aether core still going
+            await AetherCoreManager.Instance.StopAllAsync();
             StatisticsManager.Instance.Close();
 
             Logging.SaveLog("AppExitAsync End");
@@ -294,6 +296,26 @@ public sealed class AppManager
             return null;
         }
         return await SQLiteHelper.Instance.TableAsync<ProfileItem>().FirstOrDefaultAsync(it => it.Remarks == remarks);
+    }
+
+    /// <summary>
+    /// PattN: every profile named <paramref name="name" />, the names told apart without the spaces around them, as the
+    /// lists that offer them show them, exactly and case by case (PattNG ByName). A reference by name, such as the
+    /// exit-node of an Aether profile, can so tell a name no profile has from one several have, where
+    /// <see cref="GetProfileItemViaRemarks" /> gives the first of them. None for a blank name.
+    /// </summary>
+    public async Task<List<ProfileItem>> GetProfileItemsViaRemarksAsync(string? name)
+    {
+        var wanted = KotlinText.TrimOrNull(name) ?? string.Empty;
+        if (wanted.Length == 0)
+        {
+            return [];
+        }
+        // The query only narrows the rows down to names that hold the wanted one; the match itself is made here.
+        var candidates = await SQLiteHelper.Instance.TableAsync<ProfileItem>()
+            .Where(it => it.Remarks.Contains(wanted))
+            .ToListAsync();
+        return candidates.Where(it => KotlinText.Trim(it.Remarks ?? string.Empty) == wanted).ToList();
     }
 
     public async Task<List<RoutingItem>?> RoutingItems()

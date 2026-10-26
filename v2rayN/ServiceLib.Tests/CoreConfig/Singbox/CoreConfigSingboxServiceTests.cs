@@ -58,6 +58,36 @@ public class CoreConfigSingboxServiceTests
     }
 
     [Test]
+    [Arguments(false)] // no global IPv6 address: the TUN takes no IPv6
+    [Arguments(true)] // a global IPv6 address could bypass it: the TUN keeps asking and fails to start rather than let it out
+    public async Task GenerateClientConfigContent_Tun_IPv6DisabledByOs_ShouldTakeNoIPv6UnlessItCouldBypass(bool hasGlobalIPv6Address)
+    {
+        // PattN: where the OS keeps IPv6 off on new interfaces, a TUN asked for an IPv6 address does not start, so the
+        // TUN gets none even with EnableIPv6Address on, and fake DNS hands out no IPv6 address that could not go into
+        // it, unless a global IPv6 address that an existing interface still has could bypass the TUN.
+        var config = CoreConfigTestFactory.CreateConfig(ECoreType.sing_box);
+        config.SimpleDNSItem.FakeIP = true;
+        config.SimpleDNSItem.BlockAAAAQuery = false;
+        config.TunModeItem.EnableTun = true;
+        config.TunModeItem.EnableIPv6Address = true;
+        CoreConfigTestFactory.BindAppManagerConfig(config);
+
+        var node = CoreConfigTestFactory.CreateVmessNode(ECoreType.sing_box);
+        var context = CoreConfigTestFactory.CreateContext(config, node, ECoreType.sing_box, hasGlobalIPv6Address)
+            with { IsIPv6DisabledByOs = true };
+
+        var result = new CoreConfigSingboxService(context).GenerateClientConfigContent();
+
+        await result.Success.Should().BeTrue().Because($"ret msg: {result.Msg}");
+        var cfg = JsonUtils.Deserialize<SingboxConfig>(result.Data!.ToString())!;
+        var tun = cfg.inbounds.First(i => i.type == "tun");
+        await tun.address.Should().NotBeNull();
+        await tun.address!.Any(a => a.Contains(':')).Should().BeEqualTo(hasGlobalIPv6Address);
+        var fakeip = cfg.dns.servers.Single(s => s.tag == Global.SingboxFakeDNSTag);
+        await (fakeip.inet6_range == Global.SingboxFakeIPv6Range).Should().BeEqualTo(hasGlobalIPv6Address);
+    }
+
+    [Test]
     public async Task GenerateClientConfigContent_TunWithLoopbackPreSocks_ShouldKeepMixedInbound()
     {
         var config = CoreConfigTestFactory.CreateConfig(ECoreType.sing_box);
@@ -751,7 +781,6 @@ public class CoreConfigSingboxServiceTests
                 $"'{address}' must leave room for the peer address the system stack derives");
         }
     }
-
 
     [Test]
     public async Task GenerateClientConfigContent_CustomOutbound_ShouldReplaceWithUserCustomOutboundJson()

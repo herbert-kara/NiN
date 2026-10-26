@@ -63,7 +63,7 @@ public partial class CoreConfigSingboxService
                 }
 
                 var tunInbound = JsonUtils.Deserialize<Inbound4Sbox>(EmbedUtils.GetEmbedText(Global.TunSingboxInboundFileName)) ?? new Inbound4Sbox { };
-                tunInbound.interface_name = context.IsMacOS ? $"utun{new Random().Next(99)}" : "singbox_tun";
+                tunInbound.interface_name = context.IsMacOS ? null : "singbox_tun";
                 tunInbound.mtu = _config.TunModeItem.Mtu;
                 tunInbound.auto_route = _config.TunModeItem.AutoRoute;
                 tunInbound.strict_route = _config.TunModeItem.StrictRoute;
@@ -71,7 +71,7 @@ public partial class CoreConfigSingboxService
 
                 var address = _config.TunModeItem.IPv4Address.NullIfEmpty() ?? Global.TunIPv4Address.First();
                 tunInbound.address = [address];
-                if (_config.TunModeItem.EnableIPv6Address == true)
+                if (TunTakesIPv6())
                 {
                     var address6 = _config.TunModeItem.IPv6Address.NullIfEmpty() ?? Global.TunIPv6Address.First();
                     tunInbound.address.Add(address6);
@@ -85,6 +85,18 @@ public partial class CoreConfigSingboxService
         {
             Logging.SaveLog(_tag, ex);
         }
+    }
+
+    /// <summary>
+    /// PattN: whether the TUN takes an IPv6 address. Where the OS keeps IPv6 off on new interfaces, a TUN asked for
+    /// one does not start, so EnableIPv6Address counts for nothing there, unless a global IPv6 address that an
+    /// existing interface still has could bypass the TUN: it then keeps asking and fails to start rather than let
+    /// that IPv6 out.
+    /// </summary>
+    private bool TunTakesIPv6()
+    {
+        return _config.TunModeItem.EnableIPv6Address
+               && (!context.IsIPv6DisabledByOs || context.HasGlobalIPv6Address);
     }
 
     private Inbound4Sbox BuildInbound(Inbound4Sbox inItem, EInboundProtocol protocol, bool bSocks)

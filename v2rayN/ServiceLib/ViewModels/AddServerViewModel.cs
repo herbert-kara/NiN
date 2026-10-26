@@ -101,6 +101,12 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
     public partial int GeckoMaxPacketSize { get; set; }
 
     [Reactive]
+    public partial string MasquePath { get; set; }
+
+    [Reactive]
+    public partial string MasqueHeaders { get; set; }
+
+    [Reactive]
     public partial string RawHeaderType { get; set; }
 
     [Reactive]
@@ -132,6 +138,13 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
 
     [Reactive]
     public partial int? KcpMtu { get; set; }
+
+    // PattN: finalMask and cipherSuites as preset fields (design 3.3, PattNG PresetField): an arrow lists ready-made
+    // values by name, and the name of the one a field holds shows with it. ProfileItem raises no change notification,
+    // so a value a pick puts in would not reach the text box: the fields hold the text, and the save writes it back.
+    public PresetFieldViewModel FinalmaskPreset { get; }
+
+    public PresetFieldViewModel CipherSuitesPreset { get; }
 
     public string TransportHeaderType
     {
@@ -299,6 +312,9 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
         TargetStrategy = SelectedSource?.GetTargetStrategy() ?? Global.AsIs;
         Cert = SelectedSource?.Cert ?? string.Empty;
         CertSha = SelectedSource?.CertSha ?? string.Empty;
+        // PattN: the preset fields start with what the profile holds
+        FinalmaskPreset = new PresetFieldViewModel(FieldPresets.FinalMask, SelectedSource?.Finalmask);
+        CipherSuitesPreset = new PresetFieldViewModel(FieldPresets.CipherSuites, SelectedSource?.CipherSuites);
 
         var protocolExtra = SelectedSource?.GetProtocolExtra() ?? new();
         var transport = SelectedSource?.GetTransportExtra() ?? new();
@@ -326,6 +342,8 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
         Hy2RealmUrl = protocolExtra.Hy2RealmUrl ?? string.Empty;
         GeckoMinPacketSize = protocolExtra.GeckoMinPacketSize.ToInt();
         GeckoMaxPacketSize = protocolExtra.GeckoMaxPacketSize.ToInt();
+        MasquePath = protocolExtra.MasquePath ?? string.Empty;
+        MasqueHeaders = protocolExtra.MasqueHeaders ?? string.Empty;
 
         RawHeaderType = transport.RawHeaderType ?? Global.None;
         Host = transport.Host ?? string.Empty;
@@ -342,6 +360,10 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
 
     private async Task SaveServerAsync()
     {
+        // PattN: what the preset fields hold, first, as the checks below read it; a blank field is the default, none
+        SelectedSource.Finalmask = string.IsNullOrWhiteSpace(FinalmaskPreset.Text) ? string.Empty : FinalmaskPreset.Text;
+        SelectedSource.CipherSuites = string.IsNullOrWhiteSpace(CipherSuitesPreset.Text) ? string.Empty : CipherSuitesPreset.Text;
+
         if (SelectedSource.Remarks.IsNullOrEmpty())
         {
             NoticeManager.Instance.Enqueue(ResUI.PleaseFillRemarks);
@@ -403,6 +425,23 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
             NoticeManager.Instance.Enqueue(echOutboundError);
             return;
         }
+        // PattN: TLS settings the Xray-core fork would not apply, or with which it would not connect (PattNG TlsSettingsCheck);
+        // the cipherSuites rule only for a profile Xray runs (X1): the core chosen here, or the one the settings give its type,
+        // as AppManager.GetCoreType finds it
+        var runCore = CoreType.IsNullOrEmpty()
+            ? _config.CoreTypeItem?.FirstOrDefault(it => it.ConfigType == SelectedSource.ConfigType)?.CoreType ?? ECoreType.Xray
+            : Enum.Parse<ECoreType>(CoreType);
+        var tlsError = TlsSettingsCheck.Validate(SelectedSource, _config.CoreBasicItem.DefFingerprint, runCore) switch
+        {
+            ETlsSettingsError.CipherSuitesNeedUnsafe => ResUI.MsgCipherSuitesNeedUnsafe,
+            ETlsSettingsError.WebsocketAlpnNotHttp1 => ResUI.MsgWebsocketAlpnHttp1Only,
+            _ => null,
+        };
+        if (tlsError != null)
+        {
+            NoticeManager.Instance.Enqueue(tlsError);
+            return;
+        }
         SelectedSource.CoreType = CoreType.IsNullOrEmpty() ? null : Enum.Parse<ECoreType>(CoreType);
         SelectedSource.AllowInsecure = AllowInsecure ? Global.StringTrue : Global.StringFalse;
         SelectedSource.MuxEnabled = MuxEnabled;
@@ -456,6 +495,8 @@ public partial class AddServerViewModel : MyReactiveObject, ICloseable
             Hy2RealmUrl = realm?.ToUri().NullIfEmpty(),
             GeckoMinPacketSize = GeckoMinPacketSize > 0 ? GeckoMinPacketSize.ToString() : null,
             GeckoMaxPacketSize = GeckoMaxPacketSize > 0 ? GeckoMaxPacketSize.ToString() : null,
+            MasquePath = MasquePath.NullIfEmpty(),
+            MasqueHeaders = MasqueHeaders.NullIfEmpty(),
         });
         SelectedSource.SetTransportExtra(transport);
 

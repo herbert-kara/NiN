@@ -2,6 +2,9 @@ using ServiceLib.Tests.CoreConfig;
 
 namespace ServiceLib.Tests.Handler;
 
+// PattN: the cases do not run beside each other or other tests, as the other database tests: sqlite-net shares one
+// connection, whose transactions cannot overlap.
+[NotInParallel]
 public class RegionalPresetTests
 {
     [Test]

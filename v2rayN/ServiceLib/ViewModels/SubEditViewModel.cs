@@ -90,6 +90,22 @@ public partial class SubEditViewModel : MyReactiveObject, ICloseable
             return;
         }
 
+        // PattN: the previous and the next profile are found by their names, as the chain finds them when it runs: a name
+        // no profile has, as after a rename or a delete, or several have, is told rather than saved (N1, PattNG
+        // SubEditViewModel)
+        if (await CoreConfigContextBuilder.SubscriptionNamesProblemAsync(PrevProfile, NextProfile) is { } nameProblem)
+        {
+            NoticeManager.Instance.Enqueue(nameProblem);
+            return;
+        }
+        // PattN: the previous and the next profile chain every profile of the subscription; either can be Aether, not
+        // both, since one core runs and a chain can have one Aether profile
+        if (await AetherMembers.SubscriptionProblemAsync(PrevProfile, NextProfile) is { } aetherProblem)
+        {
+            NoticeManager.Instance.Enqueue(aetherProblem);
+            return;
+        }
+
         SelectedSource.CustomCoreType = Enum.TryParse<ECoreType>(CustomCoreType, out var coreType) ? coreType : null;
         SelectedSource.PrevProfile = PrevProfile;
         SelectedSource.NextProfile = NextProfile;

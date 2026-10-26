@@ -20,6 +20,10 @@ public class CoreBasicItem
     public bool EnableFinalFragment { get; set; }
 
     public bool EnableCacheFile4Sbox { get; set; } = true;
+
+    // PattN: the loopback port every Aether core listens on (the three after it are the core's as well); read it
+    // through AetherPorts.ListenPortOf, which gives the default for a value that is no such port
+    public int? AetherListenPort { get; set; }
 }
 
 [Serializable]
@@ -146,9 +150,11 @@ public class TunModeItem
     public bool StrictRoute { get; set; } = true;
     public string Stack { get; set; }
     public int Mtu { get; set; }
-    public bool EnableIPv6Address { get; set; }
+    // PattN: on by default; a saved config holds the value, so existing installs keep theirs
+    public bool EnableIPv6Address { get; set; } = true;
     public string IcmpRouting { get; set; }
-    public bool EnableLegacyProtect { get; set; } = true;
+    // PattN: default to Xray's native TUN inbound; sing-box legacy protect is opt-in
+    public bool EnableLegacyProtect { get; set; }
     public List<string>? RouteExcludeAddress { get; set; }
     public string IPv4Address { get; set; }
     public string IPv6Address { get; set; }
@@ -243,9 +249,9 @@ public class WebDavItem
 [Serializable]
 public class CheckUpdateItem
 {
-    public bool CheckPreReleaseUpdate { get; set; }
     public bool UpdateViaProxy { get; set; } = true;
     public List<string>? SelectedCoreTypes { get; set; }
+    public List<string>? CheckPreReleaseCoreTypes { get; set; }
 }
 
 [Serializable]

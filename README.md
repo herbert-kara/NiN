@@ -1,4 +1,4 @@
-
+﻿
 Personal fork of [PattN](https://github.com/patterniha/PattN), based on [v2rayN](https://github.com/2dust/v2rayN). Original copyright and GPL-3.0 license are retained.
 
 ## Personal Version Changes
@@ -9,6 +9,9 @@ Personal fork of [PattN](https://github.com/patterniha/PattN), based on [v2rayN]
 - Privacy: only the public IP is sent to ipwho.is for geolocation — never the name, credentials, or config content. Local addresses are not geolocated. Results are kept under rate limits and cached temporarily; changing group or filter cancels the previous list lookups.
 
 ## Download and Test
+* اضافه شدن هسته‌ی aether
+
+**تغییرات Xray-core:**
 
 [Releases](https://github.com/herbert-kara/NiN/releases) · [Build status](https://github.com/herbert-kara/NiN/actions/workflows/nin-release.yml)
 

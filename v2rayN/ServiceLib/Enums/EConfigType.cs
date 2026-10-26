@@ -15,6 +15,11 @@ public enum EConfigType
     Anytls = 11,
     Naive = 12,
     Outbound = 13,
+    MASQUE = 14,
     PolicyGroup = 101,
     ProxyChain = 102,
+
+    // PattN: fork-only type. Its value stays clear of the values upstream v2rayN assigns, so that a type added
+    // upstream later cannot collide with it on merge (as PattNG's AETHER(500)).
+    Aether = 500,
 }

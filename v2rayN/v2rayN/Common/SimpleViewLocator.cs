@@ -13,6 +13,10 @@ public class SimpleViewLocator : IViewLocator
         Register<AddGroupServerViewModel, AddGroupServerWindow>();
         Register<AddServer2ViewModel, AddServer2Window>();
         Register<AddServerViewModel, AddServerWindow>();
+        // PattN: the Aether editor (design 3.2)
+        Register<AddServerAetherViewModel, AddServerAetherWindow>();
+        // PattN: the WARP keys window (design 3.4)
+        Register<AetherKeysViewModel, AetherKeysWindow>();
         Register<BackupAndRestoreViewModel, BackupAndRestoreView>();
         Register<CheckUpdateViewModel, CheckUpdateView>();
         Register<ClashConnectionsViewModel, ClashConnectionsView>();

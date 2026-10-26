@@ -32,6 +32,12 @@ public class InnerFmt : BaseFmt
                     // Unsupported, also to avoid possible sources of attacks, skip it
                     continue;
                 }
+                // PattN: an Aether profile travels as an aether:// link only, which carries neither the exit-node, the
+                // name of a profile of the device that shared it, nor a command of its own, which would run as written
+                if (profileItem.ConfigType == EConfigType.Aether)
+                {
+                    continue;
+                }
                 // overwrite indexId
                 var newIndexId = Utils.GetGuid(false);
                 if (!profileItem.IndexId.IsNullOrEmpty())
@@ -101,6 +107,11 @@ public class InnerFmt : BaseFmt
         foreach (var item in items)
         {
             if (item.ConfigType == EConfigType.Custom)
+            {
+                continue;
+            }
+            // PattN: an Aether profile is shared as an aether:// link only (see Resolve)
+            if (item.ConfigType == EConfigType.Aether)
             {
                 continue;
             }

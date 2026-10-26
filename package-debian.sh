@@ -102,6 +102,8 @@ install_dependencies() {
     sudo apt-get -y install \
       curl unzip tar jq rsync ca-certificates git dpkg-dev fakeroot file \
       desktop-file-utils xdg-utils wget
+    # PattN: package-aether.sh checks the Aether archive and Psiphon's server list with python3 and openssl
+    sudo apt-get -y install python3 openssl
 
     case "$HOST_ARCH" in
       aarch64) foreign_arch="amd64" ;;
@@ -492,6 +494,15 @@ stage_runtime_assets() {
     echo "[*] --netcore specified: use separate core + rules."
     populate_assets_netcore_mode "$outroot" "$rid"
   fi
+
+  # PattN: the Aether core in bin/aether and Psiphon's server list in bin (package-aether.sh); a failed checksum or
+  # signature check fails the package, so a broken or foreign download never ships
+  local aether_platform=""
+  case "$rid" in
+    linux-x64)   aether_platform="linux-64" ;;
+    linux-arm64) aether_platform="linux-arm64" ;;
+  esac
+  bash "$SCRIPT_DIR/package-aether.sh" "$aether_platform" "$outroot/bin" || { echo "[!] PattN: failed to bundle patterniha/Aether and Psiphon's server list, aborting"; return 1; }
 }
 
 describe_target() {
@@ -683,6 +694,21 @@ EOF
   find "$stage/opt/v2rayN" -type d -exec chmod 0755 {} +
   find "$stage/opt/v2rayN" -type f -exec chmod 0644 {} +
   [[ -f "$stage/opt/v2rayN/PattN" ]] && chmod 0755 "$stage/opt/v2rayN/PattN" || true
+
+  # Core binaries must be executable before installation: ordinary users cannot
+  # chmod the root-owned files installed by dpkg.
+  local core
+  for core in xray/xray sing_box/sing-box mihomo/mihomo; do
+    if [[ -f "$stage/opt/v2rayN/bin/$core" ]]; then
+      chmod 0755 "$stage/opt/v2rayN/bin/$core"
+    fi
+  done
+  # PattN: and so must the Aether core and the two programs it runs
+  for core in aether/aether aether/lyrebird aether/psiphon-tunnel-core; do
+    if [[ -f "$stage/opt/v2rayN/bin/$core" ]]; then
+      chmod 0755 "$stage/opt/v2rayN/bin/$core"
+    fi
+  done
 
   deb_out="$OUTPUT_DIR/v2rayn_${VERSION}_${deb_arch}.deb"
   dpkg-deb --root-owner-group --build "$stage" "$deb_out"

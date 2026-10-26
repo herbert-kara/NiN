@@ -81,6 +81,22 @@ public partial class RoutingRuleDetailsViewModel : MyReactiveObject, ICloseable
 
     private async Task SaveRulesAsync()
     {
+        // PattN: a rule that sends to a profile names it, and the name has to find that one profile, as at the start: a
+        // name no profile has, as after a rename or a delete, or several have, is told rather than saved (N2, PattNG
+        // RoutingEditViewModel). Looked at before the rule is written: the list holds the rule being edited, and a refused
+        // save leaves it as it was.
+        var targetRule = new RulesItem
+        {
+            Enabled = Enabled,
+            RuleType = Enum.TryParse<ERuleType>(RuleType, out var targetRuleType) ? targetRuleType : null,
+            OutboundTag = OutboundTag,
+        };
+        if (await CoreConfigContextBuilder.RuleTargetProblemAsync(targetRule) is { } targetProblem)
+        {
+            NoticeManager.Instance.Enqueue(targetProblem);
+            return;
+        }
+
         Domain = Utils.Convert2Comma(Domain);
         IP = Utils.Convert2Comma(IP);
         Process = Utils.ParseProcess(Process);

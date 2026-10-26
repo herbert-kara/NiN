@@ -40,6 +40,15 @@ public class ProfileItem
                 > 1 => $"***{arrAddr.Last()}",
                 _ => Address
             };
+            // PattN: an Aether profile is named by its tunnel from the outside in, as PattNG's list names it, and by the
+            // endpoint it is pinned to, if any; one that scans has none. The path is the same on every listen port, so
+            // the default one stands in for the setting.
+            if (ConfigType == EConfigType.Aether)
+            {
+                var path = AetherCore.Of(this, AetherPorts.DefaultListenPort).PathLabel();
+                summary += Address.IsNullOrEmpty() || Port <= 0 ? $"{Remarks}({path})" : $"{Remarks}({path}, {addr}:{Port})";
+                return summary;
+            }
             summary += $"{Remarks}({addr}:{Port})";
         }
         return summary;
@@ -77,6 +86,13 @@ public class ProfileItem
     public bool IsValid()
     {
         if (IsComplex() || ConfigType == EConfigType.Outbound)
+        {
+            return true;
+        }
+
+        // PattN: an Aether profile needs no endpoint of its own (PattNG LauncherManager): its core finds one, and the
+        // outbound built for it points at that core
+        if (ConfigType == EConfigType.Aether)
         {
             return true;
         }

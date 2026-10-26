@@ -318,10 +318,17 @@ public partial class CoreConfigSingboxService
             {
                 continue;
             }
+            // PattN: the Aether core and the helpers beside it, those that are there
+            if (coreConfig.CoreType == ECoreType.aether)
+            {
+                directExeSet.UnionWith(AetherBinaries.ExistingFiles(AetherBinaries.Folder));
+                continue;
+            }
             foreach (var baseExeName in coreConfig.CoreExes)
             {
                 //directExeSet.Add(Utils.GetExeName(baseExeName));
-                var exePath = CoreInfoManager.Instance.GetCoreExecFile(coreConfig, out _);
+                // PattN: the path alone, Xray's copy on Windows; a start checks and makes the copy
+                var exePath = CoreInfoManager.Instance.GetCoreRunPath(coreConfig, out _);
                 if (!exePath.IsNullOrEmpty())
                 {
                     directExeSet.Add(exePath);

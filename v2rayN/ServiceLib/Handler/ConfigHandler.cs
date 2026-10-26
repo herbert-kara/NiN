@@ -42,6 +42,10 @@ public static class ConfigHandler
             LogEnabled = false,
             Loglevel = "warning",
         };
+        // PattN: the Aether listen port of a settings file from before it existed
+        config.CoreBasicItem.AetherListenPort ??= AetherPorts.DefaultListenPort;
+        // PattN: the settings of Aether that belong to no profile
+        config.AetherItem ??= new();
 
         if (config.Inbound == null)
         {
@@ -94,7 +98,7 @@ public static class ConfigHandler
             EnableTun = false,
             Mtu = 9000,
             IcmpRouting = Global.TunIcmpRoutingPolicies.First(),
-            EnableLegacyProtect = true,
+            EnableLegacyProtect = false,
         };
         config.GuiItem ??= new();
         if (!Global.RootCertProviders.Contains(config.GuiItem.RootCertProvider))
@@ -306,6 +310,9 @@ public static class ConfigHandler
             EConfigType.WireGuard => await AddWireguardServer(config, item),
             EConfigType.Anytls => await AddAnytlsServer(config, item),
             EConfigType.Naive => await AddNaiveServer(config, item),
+            EConfigType.MASQUE => await AddMasqueServer(config, item),
+            // PattN: the fork's Aether profiles
+            EConfigType.Aether => await AddAetherServer(config, item),
             _ => -1,
         };
         return ret;
@@ -471,7 +478,8 @@ public static class ConfigHandler
         {
             return -1;
         }
-        return await SetDefaultServerIndex(config, lstProfile.FirstOrDefault(t => t.Port > 0)?.IndexId);
+        // PattN: an Aether profile is usable without a port: its core scans for an endpoint when none is pinned
+        return await SetDefaultServerIndex(config, lstProfile.FirstOrDefault(t => t.Port > 0 || t.ConfigType == EConfigType.Aether)?.IndexId);
     }
 
     /// <summary>
@@ -1024,6 +1032,73 @@ public static class ConfigHandler
         return 0;
     }
 
+    public static async Task<int> AddMasqueServer(Config config, ProfileItem profileItem, bool toFile = true)
+    {
+        profileItem.ConfigType = EConfigType.MASQUE;
+
+        profileItem.Address = profileItem.Address.TrimEx();
+        profileItem.Username = profileItem.Username.TrimEx();
+        profileItem.Password = profileItem.Password.TrimEx();
+        profileItem.Fingerprint = string.Empty;
+        profileItem.Alpn = string.Empty;
+        profileItem.CipherSuites = string.Empty;
+        profileItem.Network = string.Empty;
+        profileItem.AllowInsecure = string.Empty;
+        if (profileItem.StreamSecurity.IsNullOrEmpty())
+        {
+            profileItem.StreamSecurity = Global.StreamSecurity;
+        }
+        if (profileItem.Password.IsNullOrEmpty())
+        {
+            return -1;
+        }
+        await AddServerCommon(config, profileItem, toFile);
+        return 0;
+    }
+
+    /// <summary>
+    /// PattN: add or edit an Aether profile. Xray alone runs it. Its settings are the Aether fields of its protocol
+    /// extra; besides them it keeps only its pinned endpoint (Address/Port; none for a profile that scans) and the
+    /// finalMask, dialMode and targetStrategy of its outbounds. Every other column is cleared, so that an imported
+    /// profile and an edited one with the same settings are the same profile to the duplicate check. As in PattNG, a
+    /// profile is stored as it comes and never refused: the Aether editor refuses a profile with a problem on its next
+    /// save, and normalizes it before it calls this.
+    /// </summary>
+    /// <param name="config">Current configuration</param>
+    /// <param name="profileItem">Aether profile to add</param>
+    /// <param name="toFile">Whether to save to file</param>
+    /// <returns>0</returns>
+    public static async Task<int> AddAetherServer(Config config, ProfileItem profileItem, bool toFile = true)
+    {
+        profileItem.ConfigType = EConfigType.Aether;
+        profileItem.CoreType = ECoreType.Xray;
+
+        profileItem.Address = profileItem.Address.TrimEx();
+        profileItem.Password = string.Empty;
+        profileItem.Username = string.Empty;
+        profileItem.Network = Global.DefaultNetwork;
+        profileItem.StreamSecurity = string.Empty;
+        profileItem.Sni = string.Empty;
+        profileItem.Alpn = string.Empty;
+        profileItem.Fingerprint = string.Empty;
+        profileItem.CipherSuites = string.Empty;
+        profileItem.AllowInsecure = string.Empty;
+        profileItem.PublicKey = string.Empty;
+        profileItem.ShortId = string.Empty;
+        profileItem.SpiderX = string.Empty;
+        profileItem.Mldsa65Verify = string.Empty;
+        profileItem.Cert = string.Empty;
+        profileItem.CertSha = string.Empty;
+        profileItem.EchConfigList = string.Empty;
+        profileItem.EchOutbound = string.Empty;
+        profileItem.VerifyPeerCertByName = string.Empty;
+        profileItem.MuxEnabled = null;
+        profileItem.SetTransportExtra(new TransportExtraItem());
+
+        await AddServerCommon(config, profileItem, toFile);
+        return 0;
+    }
+
     /// <summary>
     /// Sort the server list by the specified column
     /// Updates the sort order in the profile extension data
@@ -1335,6 +1410,13 @@ public static class ConfigHandler
                && AreEqual(o.ShortId, n.ShortId)
                && AreEqual(o.Finalmask, n.Finalmask)
                && AreEqual(o.EchOutbound, n.EchOutbound)
+               // PattN: two Aether profiles are the same only with every setting alike (PattNG duplicateIdentity): the
+               // whole protocol extra, which holds their Aether settings and is a record compared field by field, and
+               // the dialMode and targetStrategy of their outbounds
+               && (o.ConfigType != EConfigType.Aether
+                   || (oProtocolExtra == nProtocolExtra
+                       && AreEqual(o.DialMode, n.DialMode)
+                       && AreEqual(o.TargetStrategy, n.TargetStrategy)))
                && (!remarks || o.Remarks == n.Remarks);
 
         static bool AreEqual(string? a, string? b)
@@ -1709,6 +1791,8 @@ public static class ConfigHandler
             profileItem.Subid = subid;
             profileItem.IsSub = isSub;
             ApplySubOverrides(profileItem, subItem);
+            // PattN: WebSocket and HTTPUpgrade connect only with alpn http/1.1 or none, which shared links often lack (PattNG)
+            TlsSettingsCheck.FixImportedAlpn(profileItem);
 
             var addStatus = profileItem.ConfigType switch
             {
@@ -1722,6 +1806,9 @@ public static class ConfigHandler
                 EConfigType.WireGuard => await AddWireguardServer(config, profileItem, false),
                 EConfigType.Anytls => await AddAnytlsServer(config, profileItem, false),
                 EConfigType.Naive => await AddNaiveServer(config, profileItem, false),
+                EConfigType.MASQUE => await AddMasqueServer(config, profileItem, false),
+                // PattN: aether:// links, a subscription's overrides applied as they are, as PattNG applies them
+                EConfigType.Aether => await AddAetherServer(config, profileItem, false),
                 _ => -1,
             };
 
@@ -1797,7 +1884,7 @@ public static class ConfigHandler
         }
         if (lstProfiles.Count > 0)
         {
-            var count = await AddBatchCustomServers(config, lstProfiles, subid, isSub);
+            var count = await AddBatchCustomServers(config, lstProfiles, subid, isSub, subItem);
             if (count > 0)
             {
                 return count;
@@ -1843,7 +1930,7 @@ public static class ConfigHandler
 
         if (lstProfiles?.Count > 0)
         {
-            var count = await AddBatchCustomServers(config, lstProfiles, subid, isSub);
+            var count = await AddBatchCustomServers(config, lstProfiles, subid, isSub, subItem);
             if (count > 0)
             {
                 return count;
@@ -1857,7 +1944,8 @@ public static class ConfigHandler
         Config config,
         List<ProfileItem> lstProfiles,
         string subid,
-        bool isSub)
+        bool isSub,
+        SubItem? subItem)
     {
         var count = 0;
         foreach (var it in lstProfiles)
@@ -1867,6 +1955,7 @@ public static class ConfigHandler
 
             if (it.ConfigType == EConfigType.Custom)
             {
+                it.PreSocksPort = subItem?.PreSocksPort;
                 if (await AddCustomServer(config, it, true) == 0)
                 {
                     count++;
@@ -2043,6 +2132,8 @@ public static class ConfigHandler
                 {
                     ApplySubOverrides(profileItem, subItem);
                 }
+                // PattN: WebSocket and HTTPUpgrade connect only with alpn http/1.1 or none, which shared links often lack (PattNG)
+                TlsSettingsCheck.FixImportedAlpn(profileItem);
 
                 var addStatus = profileItem.ConfigType switch
                 {
@@ -2750,6 +2841,11 @@ public static class ConfigHandler
     public const string IranDirectRoutingRemarks = "IR-ایران مستقیم، بقیه پراکسی";
 
     /// <summary>
+    /// PattN: name of the Iran global proxy rule-set
+    /// </summary>
+    public const string IranGlobalProxyRoutingRemarks = "IR-پراکسی سراسری";
+
+    /// <summary>
     /// PattN: clean an Iran direct rule-set of what custom_routing_white_iran no longer has and the Iran template
     /// (Chocolate4U) still ships:
     /// the IPOnDemand domain strategy, which 7.24.8-P5 stored too, so that the default (AsIs) applies;
@@ -2886,7 +2982,7 @@ public static class ConfigHandler
         //PattN: Iran global proxy
         var item5 = new RoutingItem()
         {
-            Remarks = "IR-پراکسی سراسری",
+            Remarks = IranGlobalProxyRoutingRemarks,
             Url = string.Empty,
             Sort = maxSort + 5,
         };
@@ -3162,6 +3258,18 @@ public static class ConfigHandler
                 break;
         }
 
+        await ActivateRegionalPresetRouting(config);
+
+        return true;
+    }
+
+    /// <summary>
+    /// PattN: activate a routing that matches the geo data of the preset just applied, as ApplyRegionalPreset does after
+    /// setting the sources; the WebAPI sets the sources of its staged presets itself and then calls this
+    /// </summary>
+    /// <param name="config">Current configuration</param>
+    public static async Task ActivateRegionalPresetRouting(Config config)
+    {
         // Activate a routing that matches the preset's geo data.
         // The IR rule-sets need geosite "category-ir" and geoip "ir", and geosite:gfw only exists on Loyalsoldier/runetfreedom;
         // an active routing with categories missing from the new dats would stop the core from starting.
@@ -3175,8 +3283,6 @@ public static class ConfigHandler
         {
             await SetDefaultRouting(config, presetRouting);
         }
-
-        return true;
     }
 
     #endregion Regional Presets

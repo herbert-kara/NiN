@@ -52,6 +52,15 @@ internal static class WindowsUtils
         }
     }
 
+    /// <summary>
+    /// PattN: the DisabledComponents value of the IPv6 stack, or null when it is not set.
+    /// </summary>
+    public static object? IPv6DisabledComponents()
+    {
+        using var regKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\Tcpip6\Parameters", false);
+        return regKey?.GetValue("DisabledComponents");
+    }
+
     public static async Task RemoveTunDevice()
     {
         var tunNameList = new List<string> { "wintunsingbox_tun", "xray_tun" };

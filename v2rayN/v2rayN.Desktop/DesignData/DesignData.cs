@@ -53,6 +53,12 @@ public static class DesignData
 
     public static AddServerViewModel? AddServer { get; } = SafeCreate(() => new AddServerViewModel(new ProfileItem { Remarks = "Design VMess Server", ConfigType = EConfigType.VMess, Address = "example.com", Port = 443 }));
 
+    // PattN: the Aether editor (design 3.2)
+    public static AddServerAetherViewModel? AddServerAether { get; } = SafeCreate(() => new AddServerAetherViewModel(new ProfileItem { Remarks = "Design Aether", ConfigType = EConfigType.Aether }));
+
+    // PattN: the WARP keys window (design 3.4)
+    public static AetherKeysViewModel? AetherKeys { get; } = SafeCreate(() => new AetherKeysViewModel());
+
     public static RoutingRuleSettingViewModel? RoutingRuleSetting { get; } = SafeCreate(() => new RoutingRuleSettingViewModel(new RoutingItem { Remarks = "Design Routing Rule" }));
 
     public static RoutingRuleDetailsViewModel? RoutingRuleDetails { get; } = SafeCreate(() => new RoutingRuleDetailsViewModel(new RulesItem { Domain = ["example.com"], OutboundTag = "direct" }));

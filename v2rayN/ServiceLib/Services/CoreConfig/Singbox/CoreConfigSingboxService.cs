@@ -131,6 +131,11 @@ public partial class CoreConfigSingboxService(CoreConfigContext context)
                     {
                         continue;
                     }
+                    // PattN: never a port the Aether core may take: the session's or a latency test's core may need it
+                    if (AetherPorts.IsReserved(k, AetherPorts.ListenPortOf(_config.CoreBasicItem.AetherListenPort)))
+                    {
+                        continue;
+                    }
                     //found
                     port = k;
                     initPort = port + 1;

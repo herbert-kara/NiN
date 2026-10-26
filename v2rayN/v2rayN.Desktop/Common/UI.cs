@@ -16,6 +16,16 @@ internal class UI
         return result == ButtonResult.Yes ? ButtonResult.Yes : ButtonResult.No;
     }
 
+    // PattN: a question with buttons of its own, over the window in front (the Aether editor's missing-keys question, the
+    // preset fields' replace question): the index of the button clicked, -1 when it was closed otherwise.
+    public static async Task<int> ShowChoice(string? title, string msg, IReadOnlyList<string> buttons, int cancelIndex)
+    {
+        var owner = WindowDialog.TryGetOwnerWindow();
+        var dialog = new ChoiceDialog(title ?? caption, msg, buttons, cancelIndex);
+        var result = await dialog.ShowDialog<int?>(owner);
+        return result ?? -1;
+    }
+
     public static async Task<string?> OpenFileDialog(FilePickerFileType? filter)
     {
         var sp = GetStorageProvider();

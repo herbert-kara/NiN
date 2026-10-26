@@ -14,6 +14,7 @@ global using System.Text.Json.Nodes;
 global using System.Text.Json.Serialization;
 global using System.Text.RegularExpressions;
 global using ReactiveUI;
+global using ServiceLib.Aether; // PattN: the fork's Aether code
 global using ServiceLib.Base;
 global using ServiceLib.Common;
 global using ServiceLib.Enums;

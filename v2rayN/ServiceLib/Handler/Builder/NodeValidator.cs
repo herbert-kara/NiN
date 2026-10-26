@@ -39,13 +39,14 @@ public class NodeValidator
 
     /// <summary>
     ///     PattN: the ECH outbound applies where the editor shows it: TLS on the protocols Xray runs,
-    ///     apart from WireGuard, which has no TLS settings. Anywhere else it is kept, but neither
-    ///     checked nor used.
+    ///     apart from WireGuard, which has no TLS settings, and Aether, whose outbound reaches its core on
+    ///     the loopback address. Anywhere else it is kept, but neither checked nor used.
     /// </summary>
     public static bool EchOutboundApplies(ProfileItem item)
     {
         return item.StreamSecurity == Global.StreamSecurity
             && item.ConfigType != EConfigType.WireGuard
+            && item.ConfigType != EConfigType.Aether
             && Global.XraySupportConfigType.Contains(item.ConfigType);
     }
 
@@ -132,6 +133,13 @@ public class NodeValidator
         if (item.ConfigType.IsGroupType())
         {
             // Group logic is handled in ValidateGroupNode
+            return;
+        }
+
+        // PattN: an Aether profile has checks of its own
+        if (item.ConfigType is EConfigType.Aether)
+        {
+            ValidateAether(item, coreType, v);
             return;
         }
 
@@ -258,6 +266,27 @@ public class NodeValidator
         if (echOutboundError != null)
         {
             v.Error(echOutboundError);
+        }
+    }
+
+    /// <summary>
+    ///     PattN: an Aether profile needs no endpoint (PattNG LauncherManager): without a pinned one its core scans,
+    ///     and a protocol of two hops names them elsewhere. Its outbound is a SOCKS one to its core on the loopback
+    ///     address, so neither the TLS, REALITY nor ECH outbound checks apply to it. Xray alone runs it, once Xray
+    ///     can build that outbound (<see cref="Global.XraySupportConfigType" />); sing-box refuses it as any type it
+    ///     does not run. Its finalMask is that of its exit-node freedom: blank or a JSON object, as the Aether editor
+    ///     of PattNG checks it.
+    /// </summary>
+    private static void ValidateAether(ProfileItem item, ECoreType coreType, ValidationContext v)
+    {
+        if (coreType is not ECoreType.Xray || !Global.XraySupportConfigType.Contains(item.ConfigType))
+        {
+            v.Error(string.Format(ResUI.MsgCoreNotSupportProtocol, coreType.ToString(), item.ConfigType));
+        }
+
+        if (!AetherExit.TakesFinalMask(item.Finalmask))
+        {
+            v.Error(string.Format(ResUI.MsgInvalidProperty, ResUI.TbFinalmask));
         }
     }
 

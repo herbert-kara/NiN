@@ -20,6 +20,8 @@ public class FmtHandler
                 EConfigType.WireGuard => WireguardFmt.ToUri(item),
                 EConfigType.Anytls => AnytlsFmt.ToUri(item),
                 EConfigType.Naive => NaiveFmt.ToUri(item),
+                // PattN: the fork's Aether profiles, as PattNG shares them
+                EConfigType.Aether => AetherFmt.ToUri(item),
                 _ => null,
             };
 
@@ -94,6 +96,11 @@ public class FmtHandler
                      || str.StartsWith(Global.NaiveQuicProtocolShare))
             {
                 return NaiveFmt.Resolve(str, out msg);
+            }
+            // PattN: the links of Aether profiles, PattNG's among them
+            else if (str.StartsWith(Global.ProtocolShares[EConfigType.Aether]))
+            {
+                return AetherFmt.Resolve(str, out msg);
             }
             else
             {

@@ -45,6 +45,8 @@ internal class UpgradeApp
             var thisAppOldFile = $"{Utils.GetExePath()}.tmp";
             File.Delete(thisAppOldFile);
             var splitKey = "/";
+            var allowedBaseDir = Utils.StartupPath();
+            var pathComparison = Utils.GetPathComparison();
 
             using var archive = ZipFile.OpenRead(fileName);
             // NiN packages keep their files at the zip root. Upstream zips them
@@ -68,16 +70,21 @@ internal class UpgradeApp
                     var fullName = wrapper.Length > 0
                         ? entry.FullName[(wrapper.Length + splitKey.Length)..]
                         : entry.FullName;
+                    var entryOutputPath = Utils.GetPath(fullName);
+                    if (!Utils.IsPathUnderDirectory(allowedBaseDir, entryOutputPath))
+                    {
+                        Console.WriteLine($"{Resx.Resource.FailedUpgrade} blocked potential path traversal: {entry.FullName}");
+                        return;
+                    }
 
-                    if (string.Equals(Utils.GetExePath(), Utils.GetPath(fullName), StringComparison.OrdinalIgnoreCase))
+                    if (string.Equals(Utils.GetExePath(), entryOutputPath, pathComparison))
                     {
                         File.Move(Utils.GetExePath(), thisAppOldFile);
                     }
 
-                    var entryOutputPath = Utils.GetPath(fullName);
                     Directory.CreateDirectory(Path.GetDirectoryName(entryOutputPath)!);
                     //In the bin folder, if the file already exists, it will be skipped
-                    if (fullName.StartsWith("bin") && File.Exists(entryOutputPath))
+                    if (fullName.StartsWith("bin", pathComparison) && File.Exists(entryOutputPath))
                     {
                         continue;
                     }

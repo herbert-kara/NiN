@@ -17,6 +17,10 @@ public class SimpleViewLocator : IDataTemplate
         RegisterViewFactory<AddGroupServerViewModel, AddGroupServerWindow>();
         RegisterViewFactory<AddServer2ViewModel, AddServer2Window>();
         RegisterViewFactory<AddServerViewModel, AddServerWindow>();
+        // PattN: the Aether editor (design 3.2)
+        RegisterViewFactory<AddServerAetherViewModel, AddServerAetherWindow>();
+        // PattN: the WARP keys window (design 3.4)
+        RegisterViewFactory<AetherKeysViewModel, AetherKeysWindow>();
         RegisterViewFactory<BackupAndRestoreViewModel, BackupAndRestoreView>();
         RegisterViewFactory<CheckUpdateViewModel, CheckUpdateView>();
         RegisterViewFactory<ClashConnectionsViewModel, ClashConnectionsView>();

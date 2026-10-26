@@ -24,12 +24,12 @@
             Orientation="Horizontal">
             <Button
                 x:Name="btnSave"
-                Width="100"
+                MinWidth="100"
                 Content="{x:Static resx:ResUI.TbConfirm}"
                 IsDefault="True" />
             <Button
                 x:Name="btnCancel"
-                Width="100"
+                MinWidth="100"
                 Margin="{StaticResource MarginLr8}"
                 Content="{x:Static resx:ResUI.TbCancel}"
                 IsCancel="True" />
@@ -783,6 +783,70 @@
                         HorizontalAlignment="Left" />
                 </Grid>
 
+
+                <Grid
+                    x:Name="gridMasque"
+                    Grid.Row="2"
+                    ColumnDefinitions="300,Auto"
+                    IsVisible="False"
+                    RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock
+                        Grid.Row="1"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Text="{x:Static resx:ResUI.TbUsername}" />
+                    <TextBox
+                        x:Name="txtId14"
+                        Grid.Row="1"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}" />
+
+                    <TextBlock
+                        Grid.Row="2"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Text="{x:Static resx:ResUI.TbId3}" />
+                    <TextBox
+                        x:Name="txtSecurity14"
+                        Grid.Row="2"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}" />
+
+                    <TextBlock
+                        Grid.Row="3"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Text="{x:Static resx:ResUI.TbPath}" />
+                    <TextBox
+                        x:Name="txtPath14"
+                        Grid.Row="3"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}" />
+
+                    <TextBlock
+                        Grid.Row="4"
+                        Grid.Column="0"
+                        Margin="{StaticResource Margin4}"
+                        VerticalAlignment="Center"
+                        Text="{x:Static resx:ResUI.TbHttpOutboundHeaders}" />
+                    <TextBox
+                        x:Name="txtHttpHeaders14"
+                        Grid.Row="4"
+                        Grid.Column="1"
+                        Width="400"
+                        Margin="{StaticResource Margin4}"
+                        AcceptsReturn="True"
+                        Classes="TextArea"
+                        PlaceholderText="Header: Value"
+                        TextWrapping="NoWrap" />
+                </Grid>
+
                 <Separator
                     x:Name="sepa2"
                     Grid.Row="3"
@@ -1092,6 +1156,12 @@
                         Margin="{StaticResource Margin4}"
                         VerticalAlignment="Center"
                         Text="{x:Static resx:ResUI.TbFinalmask}" />
+                    <!--  PattN: the arrow of the finalMask presets and the name of the one the flyout's text holds sit beside the flyout's  -->
+                    <!--  button, so that both are in sight while it is closed (design 3.3); the button is upstream's, its lines kept as they are  -->
+                    <StackPanel
+                        Grid.Row="0"
+                        Grid.Column="1"
+                        Orientation="Horizontal">
                     <Button
                         Grid.Row="0"
                         Grid.Column="1"
@@ -1120,6 +1190,11 @@
                             </Flyout>
                         </Button.Flyout>
                     </Button>
+                        <views:PresetField
+                            x:Name="presetFinalmask"
+                            VerticalAlignment="Center"
+                            ShowsText="False" />
+                    </StackPanel>
 
                     <TextBlock
                         Grid.Row="1"
@@ -1218,18 +1293,18 @@
                         Width="200"
                         Margin="{StaticResource Margin4}" />
 
+                    <!--  PattN: at the top, 10 px down, level with the preset field's text above the name of the preset it holds (design 3.3)  -->
                     <TextBlock
                         Grid.Row="4"
                         Grid.Column="0"
-                        Margin="{StaticResource Margin4}"
-                        VerticalAlignment="Center"
+                        Margin="4,10,4,4"
+                        VerticalAlignment="Top"
                         Text="{x:Static resx:ResUI.TbCipherSuites}" />
-                    <TextBox
-                        x:Name="txtCipherSuites"
+                    <!--  PattN: cipherSuites as a preset field (design 3.3)  -->
+                    <views:PresetField
+                        x:Name="presetCipherSuites"
                         Grid.Row="4"
                         Grid.Column="1"
-                        Width="400"
-                        Margin="{StaticResource Margin4}"
                         HorizontalAlignment="Left" />
 
                     <TextBlock

@@ -98,6 +98,8 @@ install_dependencies() {
   if command -v dnf >/dev/null 2>&1; then
     sudo dnf -y install rpm-build rpmdevtools curl unzip tar jq rsync dotnet-sdk-10.0 \
       && install_ok=1
+    # PattN: package-aether.sh checks the Aether archive and Psiphon's server list with python3 and openssl
+    sudo dnf -y install python3 openssl || install_ok=0
   fi
 
   if [[ "$install_ok" -ne 1 ]]; then
@@ -466,6 +468,15 @@ stage_runtime_assets() {
     echo "[*] --netcore specified: use separate core + rules."
     populate_assets_netcore_mode "$outroot" "$rid"
   fi
+
+  # PattN: the Aether core in bin/aether and Psiphon's server list in bin (package-aether.sh); a failed checksum or
+  # signature check fails the package, so a broken or foreign download never ships
+  local aether_platform=""
+  case "$rid" in
+    linux-x64)   aether_platform="linux-64" ;;
+    linux-arm64) aether_platform="linux-arm64" ;;
+  esac
+  bash "$SCRIPT_DIR/package-aether.sh" "$aether_platform" "$outroot/bin" || { echo "[!] PattN: failed to bundle patterniha/Aether and Psiphon's server list, aborting"; return 1; }
 }
 
 describe_target() {
@@ -534,6 +545,8 @@ cp -a * %{buildroot}/opt/v2rayN/
 find %{buildroot}/opt/v2rayN -type d -exec chmod 0755 {} +
 find %{buildroot}/opt/v2rayN -type f -exec chmod 0644 {} +
 [ -f %{buildroot}/opt/v2rayN/PattN ] && chmod 0755 %{buildroot}/opt/v2rayN/PattN || :
+# PattN: the Aether core and the two programs it runs keep their execute bits
+for f in aether lyrebird psiphon-tunnel-core; do [ -f %{buildroot}/opt/v2rayN/bin/aether/$f ] && chmod 0755 %{buildroot}/opt/v2rayN/bin/aether/$f || :; done
 
 install -dm0755 %{buildroot}%{_bindir}
 install -m0755 /dev/stdin %{buildroot}%{_bindir}/v2rayn << 'EOF'

@@ -501,6 +501,31 @@ public class Utils
         };
     }
 
+    public static List<(string, string)> ParseHeaders(string? headers)
+    {
+        var result = new List<(string, string)>();
+        if (headers.IsNullOrEmpty())
+        {
+            return result;
+        }
+        var lines = headers.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var line in lines)
+        {
+            var parts = line.Split(new[] { ':' }, 2);
+            if (parts.Length != 2)
+            {
+                continue;
+            }
+            var key = parts[0].Trim();
+            var value = parts[1].Trim();
+            if (!string.IsNullOrEmpty(key))
+            {
+                result.Add((key, value));
+            }
+        }
+        return result;
+    }
+
     #endregion Conversion Functions
 
     #region Data Checks
@@ -881,6 +906,53 @@ public class Utils
         // 2000::/3 is the only range currently assigned for global unicast, which leaves out
         // ::1, fe80::/10, fc00::/7 and ff00::/8 in a single test.
         return (address.GetAddressBytes()[0] & 0xE0) == 0x20;
+    }
+
+    /// <summary>
+    /// PattN: whether the OS keeps IPv6 off on new interfaces, where a TUN asked for an IPv6 address or
+    /// route does not start: Windows with DisabledComponents turning IPv6 off on native interfaces (0x10,
+    /// which 0xFF includes; Windows applies it at the next restart), Linux with
+    /// net.ipv6.conf.default.disable_ipv6 set or without the IPv6 stack (ipv6.disable=1). It reads these
+    /// settings rather than the interfaces, so a host that is not connected yet still counts as having IPv6.
+    /// An interface that existed before can still hold IPv6, which the TUNs take into account.
+    /// </summary>
+    public static bool IsIPv6DisabledByOs()
+    {
+        try
+        {
+            if (IsWindows())
+            {
+                return IsIPv6DisabledByComponents(WindowsUtils.IPv6DisabledComponents());
+            }
+            if (IsLinux() && Directory.Exists("/proc/sys/net"))
+            {
+                return !Directory.Exists("/proc/sys/net/ipv6")
+                       || IsIPv6DisabledBySysctl(File.ReadAllText("/proc/sys/net/ipv6/conf/default/disable_ipv6"));
+            }
+        }
+        catch (Exception ex)
+        {
+            Logging.SaveLog(_tag, ex);
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// PattN: whether a DisabledComponents value turns IPv6 off on native (nontunnel) interfaces. Wintun's
+    /// adapter is one (IF_TYPE_PROP_VIRTUAL); the tunnel interfaces are Windows' own 6to4, ISATAP, Teredo and
+    /// IP-HTTPS ones.
+    /// </summary>
+    public static bool IsIPv6DisabledByComponents(object? disabledComponents)
+    {
+        return disabledComponents is int value && (value & 0x10) != 0;
+    }
+
+    /// <summary>
+    /// PattN: whether a disable_ipv6 sysctl value turns IPv6 off; the kernel takes any nonzero number as off.
+    /// </summary>
+    public static bool IsIPv6DisabledBySysctl(string? value)
+    {
+        return int.TryParse(value?.Trim(), out var number) && number != 0;
     }
 
     #endregion Speed Test
@@ -1422,7 +1494,11 @@ public class Utils
             if (File.Exists(fileName))
             {
                 var currentMode = File.GetUnixFileMode(fileName);
-                File.SetUnixFileMode(fileName, currentMode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute);
+                var executableMode = currentMode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+                if (currentMode != executableMode)
+                {
+                    File.SetUnixFileMode(fileName, executableMode);
+                }
                 return true;
             }
         }

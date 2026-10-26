@@ -34,6 +34,14 @@ public partial class MainWindowViewModel : MyReactiveObject
     public ReactiveCommand<RxVoid, RxVoid> AddWireguardServerCmd { get; }
     public ReactiveCommand<RxVoid, RxVoid> AddAnytlsServerCmd { get; }
     public ReactiveCommand<RxVoid, RxVoid> AddNaiveServerCmd { get; }
+    public ReactiveCommand<RxVoid, RxVoid> AddMasqueServerCmd { get; }
+
+    // PattN: "Add Aether config manually" (design 3.5)
+    public ReactiveCommand<RxVoid, RxVoid> AddAetherServerCmd { get; }
+
+    // PattN: the WARP keys window, beside "Add Aether config manually" (design 3.4)
+    public ReactiveCommand<RxVoid, RxVoid> AetherKeysCmd { get; }
+
     public ReactiveCommand<RxVoid, RxVoid> AddCustomServerCmd { get; }
     public ReactiveCommand<RxVoid, RxVoid> AddCustomOutboundServerCmd { get; }
     public ReactiveCommand<RxVoid, RxVoid> AddPolicyGroupServerCmd { get; }
@@ -142,6 +150,20 @@ public partial class MainWindowViewModel : MyReactiveObject
         AddNaiveServerCmd = ReactiveCommand.CreateFromTask(async () =>
         {
             await AddServerAsync(EConfigType.Naive);
+        });
+        AddMasqueServerCmd = ReactiveCommand.CreateFromTask(async () =>
+        {
+            await AddServerAsync(EConfigType.MASQUE);
+        });
+        // PattN: "Add Aether config manually" (design 3.5)
+        AddAetherServerCmd = ReactiveCommand.CreateFromTask(async () =>
+        {
+            await AddServerAsync(EConfigType.Aether);
+        });
+        // PattN: the WARP keys window, which preselects nothing (design 3.4)
+        AetherKeysCmd = ReactiveCommand.CreateFromTask(async () =>
+        {
+            await AppManager.Instance.WindowDialog.ShowDialogAsync(new AetherKeysViewModel());
         });
         AddCustomServerCmd = ReactiveCommand.CreateFromTask(async () =>
         {
@@ -481,6 +503,12 @@ public partial class MainWindowViewModel : MyReactiveObject
             var addGroupServerViewModel = new AddGroupServerViewModel(item);
             ret = await AppManager.Instance.WindowDialog.ShowDialogAsync(addGroupServerViewModel);
         }
+        // PattN: an Aether profile has an editor of its own (design 3.1)
+        else if (eConfigType == EConfigType.Aether)
+        {
+            var addServerAetherViewModel = new AddServerAetherViewModel(item);
+            ret = await AppManager.Instance.WindowDialog.ShowDialogAsync(addServerAetherViewModel);
+        }
         else
         {
             var addServerViewModel = new AddServerViewModel(item);
@@ -537,7 +565,7 @@ public partial class MainWindowViewModel : MyReactiveObject
     public async Task AddServerViaImageAsync()
     {
         var imageFileName = await BrowseImageFileInteraction.HandleSafe(RxVoid.Default);
-        await AddScanResultAsync(imageFileName);
+        await ScanImageResult(imageFileName);
     }
 
     public async Task ScanImageResult(string fileName)
@@ -720,8 +748,16 @@ public partial class MainWindowViewModel : MyReactiveObject
                 await SysProxyHandler.UpdateSysProxy(_config, false);
                 await Task.Delay(1000);
             });
+            // PattN: the Aether core of the configuration is tested once it carries traffic (design 2.6.4)
+            var aetherSession = AetherCoreManager.Instance.Session;
             RxSchedulers.MainThreadScheduler.Schedule(async () =>
             {
+                // PattN
+                if (aetherSession != null && !await AwaitAetherSessionAsync(aetherSession))
+                {
+                    return;
+                }
+
                 var result = await StatusBarViewModel.TestServerAvailability();
                 if (result == null || profileItem.IndexId.IsNullOrEmpty())
                 {
@@ -786,6 +822,30 @@ public partial class MainWindowViewModel : MyReactiveObject
     private async Task LoadCore(CoreConfigContext? mainContext, CoreConfigContext? preContext)
     {
         await CoreManager.Instance.LoadCore(mainContext, preContext);
+    }
+
+    /// <summary>
+    /// PattN: waits for the Aether session to carry traffic, round after round while it lives, since a scan may take
+    /// minutes (design 2.6.4, PattNG announceAetherWarmUp); false when it ended or was replaced meanwhile. A core that
+    /// exits on its own is reported by CoreManager, which stops the cores then; the status bar, which said the core was
+    /// connecting, says in the core's words that it stopped (PattNG MSG_STATE_START_FAILURE). A session replaced or
+    /// stopped leaves the status bar to the load or the stop that did it.
+    /// </summary>
+    private async Task<bool> AwaitAetherSessionAsync(AetherSession session)
+    {
+        NoticeManager.Instance.SendMessageEx(ResUI.MsgAetherConnecting);
+        await StatusBarViewModel.TestServerAvailabilityResult(ResUI.MsgAetherConnecting);
+        var outcome = await AetherCoreManager.Instance.AwaitWarmUpAsync(session);
+        if (outcome != AetherWarmUpOutcome.Listening)
+        {
+            if (outcome == AetherWarmUpOutcome.CoreExited)
+            {
+                await StatusBarViewModel.TestServerAvailabilityResult(AetherCoreManager.Instance.StoppedMessage());
+            }
+            return false;
+        }
+        NoticeManager.Instance.SendMessageEx(ResUI.MsgAetherConnected);
+        return true;
     }
 
     #endregion core job
