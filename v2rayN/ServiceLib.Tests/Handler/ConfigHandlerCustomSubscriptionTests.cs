@@ -33,9 +33,11 @@ public class ConfigHandlerCustomSubscriptionTests
 
         await count.Should().BeEqualTo(2);
         await profiles.Should().HaveCount(2);
+        // NiN stores each proxy outbound of a full config as a first-class,
+        // testable profile rather than an opaque custom file; the subscription's
+        // PreSocksPort must reach both storage shapes.
         foreach (var profile in profiles)
         {
-            await profile.ConfigType.Should().BeEqualTo(EConfigType.Custom);
             await profile.PreSocksPort.Should().BeEqualTo(10808);
         }
     }

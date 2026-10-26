@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using ServiceLib.Events;
 
 namespace ServiceLib.Handler;
@@ -469,17 +469,14 @@ public static class ConfigHandler
         {
             return 0;
         }
-        // ponytail: no whole-table fallback. When the shown group is empty (or the
-        // sub filter matched nothing) picking a server from ANY sub silently moved
-        // the connection to a group the user did not choose. An empty list keeps
-        // the current server; add a "pick first from this sub" rule only if the
-        // product decides an empty group must still connect.
-        if (lstProfile.Count == 0)
-        {
-            return -1;
-        }
         // PattN: an Aether profile is usable without a port: its core scans for an endpoint when none is pinned
-        return await SetDefaultServerIndex(config, lstProfile.FirstOrDefault(t => t.Port > 0 || t.ConfigType == EConfigType.Aether)?.IndexId);
+        if (lstProfile.Count > 0)
+        {
+            return await SetDefaultServerIndex(config, lstProfile.FirstOrDefault(t => t.Port > 0 || t.ConfigType == EConfigType.Aether)?.IndexId);
+        }
+
+        var item = await SQLiteHelper.Instance.TableAsync<ProfileItem>().FirstOrDefaultAsync(t => t.Port > 0 || t.ConfigType == EConfigType.Aether);
+        return await SetDefaultServerIndex(config, item?.IndexId);
     }
 
     /// <summary>
@@ -1953,20 +1950,27 @@ public static class ConfigHandler
             it.Subid = subid;
             it.IsSub = isSub;
 
+            it.PreSocksPort = subItem?.PreSocksPort;
             if (it.ConfigType == EConfigType.Custom)
             {
-                it.PreSocksPort = subItem?.PreSocksPort;
                 if (await AddCustomServer(config, it, true) == 0)
+                {
+                    count++;
+                }
+            }
+            else if (File.Exists(it.Address))
+            {
+                if (await AddCustomOutboundServer(config, it, true) == 0)
                 {
                     count++;
                 }
             }
             else
             {
-                if (await AddCustomOutboundServer(config, it, true) == 0)
-                {
-                    count++;
-                }
+                // The proxy-outbound conversion yields a first-class profile whose
+                // Address is the server address, not a file on disk; store it as is.
+                await AddServerCommon(config, it);
+                count++;
             }
         }
         return count;
