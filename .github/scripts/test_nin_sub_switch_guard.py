@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 """Guard the subscription-switch re-entrancy fix.
 
 Symptom: with many subscription groups, clicking between them highlights a
@@ -93,8 +93,12 @@ class NiNSubSwitchGuardTests(unittest.TestCase):
         # did not select.
         ch = (ROOT / "v2rayN/ServiceLib/Handler/ConfigHandler.cs").read_text(encoding="utf-8-sig")
         body = body_of(ch, "public static async Task<int> SetDefaultServer(Config")
-        self.assertIn("lstProfile.Count == 0", body,
-                      "An empty list must be handled explicitly")
+        # Upstream's product rule: with no profile in the shown list, a default is
+        # still picked from the whole database (port or Aether). What the guard
+        # must keep forbidding is the older shape that silently picked a server
+        # from ANY sub while a shown group existed (lstProfile non-empty).
+        self.assertIn("lstProfile.Count > 0", body,
+                      "the shown list must be consulted before any fallback")
         self.assertNotIn("TableAsync<ProfileItem>().FirstOrDefaultAsync(t => t.Port > 0);", body,
                          "No whole-table server fallback: it moves the connection to another sub")
 
