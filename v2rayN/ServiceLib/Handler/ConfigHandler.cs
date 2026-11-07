@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using ServiceLib.Events;
 
 namespace ServiceLib.Handler;
@@ -1772,6 +1772,11 @@ public static class ConfigHandler
                 continue;
             }
             var profileItem = FmtHandler.ResolveConfig(str, out var msg);
+            // Outline dynamic key: resolve it over the network first
+            if (profileItem is null && SsConfFmt.IsSsConf(str))
+            {
+                profileItem = await SsConfFmt.ResolveAsync(str, out msg);
+            }
             if (profileItem is null)
             {
                 continue;
@@ -2332,6 +2337,13 @@ public static class ConfigHandler
     /// <returns>0 if successful, -1 if failed</returns>
     public static async Task<int> AddSubItem(Config config, string url)
     {
+        // Outline dynamic key: only the https form can be downloaded on every refresh
+        var keyName = SsConfFmt.IsSsConf(url) ? SsConfFmt.GetKeyName(url) : string.Empty;
+        if (SsConfFmt.IsSsConf(url))
+        {
+            url = SsConfFmt.ToHttpUrl(url);
+        }
+
         //already exists
         var count = await SQLiteHelper.Instance.TableAsync<SubItem>().CountAsync(e => e.Url == url);
         if (count > 0)
@@ -2358,7 +2370,7 @@ public static class ConfigHandler
         }
 
         var queryVars = Utils.ParseQueryString(uri.Query);
-        subItem.Remarks = queryVars["remarks"] ?? "import_sub";
+        subItem.Remarks = queryVars["remarks"] ?? (keyName.IsNotEmpty() ? keyName : "import_sub");
 
         return await AddSubItem(config, subItem);
     }
@@ -2371,6 +2383,11 @@ public static class ConfigHandler
     /// <returns>0 if successful, -1 if failed</returns>
     public static async Task<int> AddSubItem(Config config, SubItem subItem)
     {
+        if (SsConfFmt.IsSsConf(subItem.Url))
+        {
+            subItem.Url = SsConfFmt.ToHttpUrl(subItem.Url);
+        }
+
         var item = await AppManager.Instance.GetSubItem(subItem.Id);
         if (item is null)
         {

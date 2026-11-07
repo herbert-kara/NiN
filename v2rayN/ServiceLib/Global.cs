@@ -77,6 +77,8 @@ public class Global
     public const string HttpsProtocol = "https://";
     public const string SocksProtocol = "socks://";
     public const string Socks5Protocol = "socks5://";
+    // Outline "dynamic access key": fetched over https, resolves to an ss:// profile
+    public const string SsConfProtocol = "ssconf://";
     public const string InnerUriProtocol = "v2rayn://";
     public const string AsIs = "AsIs";
     public const string IPIfNonMatch = "IPIfNonMatch";
