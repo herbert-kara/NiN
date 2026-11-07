@@ -2337,11 +2337,11 @@ public static class ConfigHandler
     /// <returns>0 if successful, -1 if failed</returns>
     public static async Task<int> AddSubItem(Config config, string url)
     {
-        // Outline dynamic key: only the https form can be downloaded on every refresh
-        var keyName = SsConfFmt.IsSsConf(url) ? SsConfFmt.GetKeyName(url) : string.Empty;
+        // An Outline key is one profile, not a subscription: importing it here keeps
+        // the add-by-URL box working instead of storing a key document as a subscription.
         if (SsConfFmt.IsSsConf(url))
         {
-            url = SsConfFmt.ToHttpUrl(url);
+            return await AddBatchServers(config, url, config.SubIndexId, false) > 0 ? 0 : -1;
         }
 
         //already exists
@@ -2370,7 +2370,7 @@ public static class ConfigHandler
         }
 
         var queryVars = Utils.ParseQueryString(uri.Query);
-        subItem.Remarks = queryVars["remarks"] ?? (keyName.IsNotEmpty() ? keyName : "import_sub");
+        subItem.Remarks = queryVars["remarks"] ?? "import_sub";
 
         return await AddSubItem(config, subItem);
     }

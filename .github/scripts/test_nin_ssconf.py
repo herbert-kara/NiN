@@ -60,21 +60,19 @@ class SsConfImportTests(unittest.TestCase):
         it; stored as https:// every refresh re-resolves the key."""
         self.assertIn("subItem.Url = SsConfFmt.ToHttpUrl(subItem.Url)", self.importer)
 
-    def test_pasted_subscription_converts_before_the_duplicate_check(self):
-        """The stored row is the https form, so the check has to run on that
-        form or the same key gets added twice."""
-        body = self.importer[
-            self.importer.index("public static async Task<int> AddSubItem(Config config, string url)"):
-            self.importer.index("public static async Task<int> AddSubItem(Config config, string url)") + 1200
-        ]
-        convert = body.index("SsConfFmt.ToHttpUrl(url)")
-        dedupe = body.index("CountAsync(e => e.Url == url)")
-        self.assertLess(convert, dedupe)
+    def test_add_by_url_imports_a_key_instead_of_storing_it(self):
+        """A key is one profile. Stored as a subscription, every refresh would
+        download a key document and import nothing."""
+        marker = "public static async Task<int> AddSubItem(Config config, string url)"
+        body = self.importer[self.importer.index(marker):self.importer.index(marker) + 900]
+        self.assertIn("AddBatchServers(config, url, config.SubIndexId, false)", body)
+        self.assertNotIn("ToHttpUrl(url)", body)
 
     def test_key_name_becomes_the_remark(self):
         """Outline keys have no host worth showing twice; the fragment is the
         name the user recognises."""
-        self.assertIn("GetKeyName", self.importer)
+        self.assertIn("GetKeyName(ssconfUrl)", self.fmt)
+        self.assertIn("item.Remarks = name", self.fmt)
 
     def test_resolver_sends_the_request_without_the_fragment(self):
         self.assertRegex(self.fmt, r"TryGetAsync\(ToHttpUrl\(")
