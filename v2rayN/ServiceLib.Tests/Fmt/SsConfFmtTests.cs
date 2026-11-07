@@ -62,7 +62,8 @@ public class SsConfFmtTests
     [Test]
     public async Task ResolveOutlineKey_ShouldReadAnIpv6Endpoint()
     {
-        var yaml = KeyYaml.Replace("c3.example.net:443", "[2001:db8::1]:8443");
+        // brackets open a YAML flow sequence, so the endpoint has to be a quoted scalar
+        var yaml = KeyYaml.Replace("c3.example.net:443", "\"[2001:db8::1]:8443\"");
 
         var item = SsConfFmt.ResolveOutlineKey(yaml, out _);
 

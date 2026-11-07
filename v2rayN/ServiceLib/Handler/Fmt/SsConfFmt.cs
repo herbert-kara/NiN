@@ -76,7 +76,6 @@ public class SsConfFmt
         {
             item.Remarks = "outline";
         }
-        item.ConfigType = EConfigType.Shadowsocks;
         return (item, msg);
     }
 
@@ -112,6 +111,7 @@ public class SsConfFmt
 
         var item = new ProfileItem
         {
+            ConfigType = EConfigType.Shadowsocks,
             Address = host,
             Port = port,
             Password = secret,
