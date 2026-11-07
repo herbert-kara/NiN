@@ -70,6 +70,42 @@ public class SsConfFmtTests
         await item.Port.Should().BeEqualTo(8443);
     }
 
+    /// <summary>
+    /// The live document shape, aliases and reporter block included: outline
+    /// keys share one anchor between the tcp and udp transports, and the
+    /// secret sits behind it.
+    /// </summary>
+    [Test]
+    public async Task ResolveOutlineKey_ShouldReadTheDocumentOutlineActuallyServes()
+    {
+        var yaml = """
+            transport:
+              $type: tcpudp
+              tcp: &shared
+                $type: shadowsocks
+                endpoint: c3.example.net:443
+                cipher: chacha20-ietf-poly1305
+                secret: dummysecret1234
+                prefix: "POST%20abc123"
+              udp: *shared
+            reporter:
+              $type: http
+              request:
+                url: https://example.com/keepalive/
+                method: POST
+                headers:
+                  Content-Type: [application/json]
+                body: '{"server": "c3.example.net"}'
+            """;
+
+        var item = SsConfFmt.ResolveOutlineKey(yaml, out _);
+
+        await item!.Address.Should().BeEqualTo("c3.example.net");
+        await item.Port.Should().BeEqualTo(443);
+        await item.Password.Should().BeEqualTo("dummysecret1234");
+        await item.GetProtocolExtra().SsMethod.Should().BeEqualTo("chacha20-ietf-poly1305");
+    }
+
     /// <summary>The tcp transport can be nested anywhere in the document.</summary>
     [Test]
     public async Task ResolveOutlineKey_ShouldFindTheTransportInASequence()
