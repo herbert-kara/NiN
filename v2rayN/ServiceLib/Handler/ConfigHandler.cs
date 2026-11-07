@@ -1772,10 +1772,10 @@ public static class ConfigHandler
                 continue;
             }
             var profileItem = FmtHandler.ResolveConfig(str, out var msg);
-            // Outline dynamic key: resolve it over the network first
+            // Outline dynamic key: the link carries no cipher, so it is fetched first
             if (profileItem is null && SsConfFmt.IsSsConf(str))
             {
-                profileItem = await SsConfFmt.ResolveAsync(str, out msg);
+                (profileItem, msg) = await SsConfFmt.ResolveAsync(str);
             }
             if (profileItem is null)
             {

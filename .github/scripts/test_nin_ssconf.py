@@ -38,7 +38,7 @@ class SsConfImportTests(unittest.TestCase):
         self.assertNotIn("SsConfProtocol", shares)
 
     def test_importer_resolves_a_pasted_key(self):
-        self.assertIn("SsConfFmt.ResolveAsync(str, out msg)", self.importer)
+        self.assertIn("(profileItem, msg) = await SsConfFmt.ResolveAsync(str)", self.importer)
 
     def test_resolution_happens_after_the_plain_text_parsers(self):
         """Order matters: an ss:// share link must keep going through
@@ -102,6 +102,13 @@ class SsConfImportTests(unittest.TestCase):
                      "ToHttpUrl_ShouldDropTheFragmentAndKeepTheQuery"):
             with self.subTest(case=case):
                 self.assertIn(case, tests)
+
+
+    def test_resolve_does_not_use_an_out_parameter(self):
+        """async methods cannot carry out/ref parameters; the message rides in a tuple."""
+        source = read(FMT)
+        self.assertNotIn("ResolveAsync(string ssconfUrl, out", source)
+        self.assertIn("Task<(ProfileItem? Item, string Msg)> ResolveAsync", source)
 
 
 if __name__ == "__main__":

@@ -38,15 +38,18 @@ public class SsConfFmt
         return hash < 0 ? string.Empty : Utils.UrlDecode(ssconfUrl[(hash + 1)..]);
     }
 
-    public static async Task<ProfileItem?> ResolveAsync(string ssconfUrl, out string msg)
+    /// <summary>
+    /// Resolves the key over https. An async method cannot carry an out parameter,
+    /// so the message rides along with the item.
+    /// </summary>
+    public static async Task<(ProfileItem? Item, string Msg)> ResolveAsync(string ssconfUrl)
     {
-        msg = ResUI.ConfigurationFormatIncorrect;
+        var msg = ResUI.ConfigurationFormatIncorrect;
 
         var body = await HttpClientHelper.Instance.TryGetAsync(ToHttpUrl(ssconfUrl));
         if (body.IsNullOrEmpty())
         {
-            msg = ResUI.FailedReadConfiguration;
-            return null;
+            return (null, ResUI.FailedReadConfiguration);
         }
 
         var text = body.TrimEx();
@@ -61,7 +64,7 @@ public class SsConfFmt
         }
         if (item is null)
         {
-            return null;
+            return (null, msg);
         }
 
         var name = GetKeyName(ssconfUrl);
@@ -74,7 +77,7 @@ public class SsConfFmt
             item.Remarks = "outline";
         }
         item.ConfigType = EConfigType.Shadowsocks;
-        return item;
+        return (item, msg);
     }
 
     /// <summary>
