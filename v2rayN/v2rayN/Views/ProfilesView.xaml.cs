@@ -411,7 +411,7 @@ public partial class ProfilesView
         return Math.Ceiling(header.DesiredSize.Width);
     }
 
-    private static DataGridColumnHeader FindHeader(DependencyObject root, DataGridColumn column)
+    private static DataGridColumnHeader? FindHeader(DependencyObject root, DataGridColumn column)
     {
         var count = VisualTreeHelper.GetChildrenCount(root);
         for (var i = 0; i < count; i++)
@@ -432,11 +432,34 @@ public partial class ProfilesView
         return null;
     }
 
+    private static DataGridRowHeader? FindRowHeader(DependencyObject root)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is DataGridRowHeader header)
+            {
+                return header;
+            }
+
+            var found = FindRowHeader(child);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
+    }
+
     private double AvailableListWidth()
     {
-        // Reserve the vertical scrollbar, or a horizontal one appears the moment the
-        // list is long enough to scroll.
-        var width = lstProfiles.ActualWidth - SystemParameters.VerticalScrollBarWidth - 2;
+        // Reserve the row numbers and the vertical scrollbar. Leaving them out is how the
+        // columns came to be fitted to 48px they did not have: they summed to more than the
+        // grid was given and the last header sat under a horizontal scrollbar.
+        var taken = (FindRowHeader(lstProfiles)?.ActualWidth ?? 0) + SystemParameters.VerticalScrollBarWidth + 2;
+        var width = lstProfiles.ActualWidth - taken;
         return width > 0 ? width : 0;
     }
 

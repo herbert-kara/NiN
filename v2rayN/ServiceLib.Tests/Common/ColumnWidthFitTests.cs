@@ -49,6 +49,18 @@ public class ColumnWidthFitTests
     }
 
     [Test]
+    public async Task Fit_ShouldNotShrinkAHeaderToPayForALongCell()
+    {
+        // Two wide columns in a narrow window: the long server name gives up its room, the
+        // header that needs 200px does not, and the grid scrolls instead of cutting it.
+        var widths = ColumnWidthFit.Fit([300, 300], [90, 200], 250);
+
+        await widths.Sum().Should().BeEqualTo(290);
+        await widths[0].Should().BeEqualTo(90);
+        await widths[1].Should().BeEqualTo(200);
+    }
+
+    [Test]
     public async Task Fit_ShouldLeaveTheColumnsAloneWhenTheGridHasNoWidthYet()
     {
         await ColumnWidthFit.Fit([180, 60], [90, 70], 0).Should().BeEquivalentTo([180d, 70d], CollectionOrdering.Matching);

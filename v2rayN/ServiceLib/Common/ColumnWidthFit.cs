@@ -57,14 +57,17 @@ public static class ColumnWidthFit
         }
 
         // Wider than the window: take the room back from the widest columns first, so
-        // the narrow header-bound ones (Score, Jitter) keep their header intact.
+        // the narrow header-bound ones (Score, Jitter) keep their header intact. A
+        // column that holds a long server name can give up that room; one whose header
+        // needs it cannot, or the shrinking is what cuts the header this fit exists to
+        // protect. A window too narrow for every header keeps them readable and scrolls.
         var excess = total - availableWidth;
         while (excess > 0.5)
         {
             var largest = -1;
             for (var i = 0; i < count; i++)
             {
-                if (widths[i] > MinWidth && (largest < 0 || widths[i] > widths[largest]))
+                if (widths[i] > Floor(headerWidths[i]) && (largest < 0 || widths[i] > widths[largest]))
                 {
                     largest = i;
                 }
@@ -74,10 +77,15 @@ public static class ColumnWidthFit
                 break;
             }
 
-            var take = Math.Min(excess, widths[largest] - MinWidth);
+            var take = Math.Min(excess, widths[largest] - Floor(headerWidths[largest]));
             widths[largest] -= take;
             excess -= take;
         }
         return widths;
+    }
+
+    private static double Floor(double headerWidth)
+    {
+        return Math.Max(MinWidth, headerWidth);
     }
 }

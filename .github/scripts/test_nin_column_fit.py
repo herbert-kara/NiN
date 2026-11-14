@@ -154,6 +154,33 @@ class NiNColumnFitTests(unittest.TestCase):
             "the leftover width belongs to the widest column: leaving it unspent "
             "is the dead band beside the table")
 
+    def test_shrinking_never_pays_for_a_long_cell_with_a_header(self):
+        src = FIT.read_text(encoding="utf-8-sig")
+        self.assertRegex(
+            src,
+            r"widths\[i\] > Floor\(headerWidths\[i\]\)",
+            "the excess pass must stop at the column's own header, or it cuts the "
+            "very header the fit exists to protect")
+        self.assertRegex(
+            src,
+            r"widths\[largest\] - Floor\(headerWidths\[largest\]\)",
+            "the room taken back from a wide column comes out of the part above its header")
+        self.assertRegex(
+            src,
+            r"private static double Floor\(double headerWidth\)\s*\{\s*"
+            r"return Math\.Max\(MinWidth, headerWidth\);",
+            "the floor is the header, with the minimum width only as the lower bound")
+
+    def test_the_row_numbers_are_not_given_to_the_columns(self):
+        src = VIEW.read_text(encoding="utf-8-sig")
+        m = re.search(r"private double AvailableListWidth\(\).*?\n    \}", src, re.S)
+        self.assertIsNotNone(m, "AvailableListWidth is missing")
+        self.assertIn(
+            "FindRowHeader",
+            m.group(0),
+            "the row-number column sits inside the grid's width: counting it as "
+            "room for the columns pushes the last header under a scrollbar")
+
 
 if __name__ == "__main__":
     unittest.main()
