@@ -180,6 +180,17 @@ class NiNColumnFitTests(unittest.TestCase):
             m.group(0),
             "the row-number column sits inside the grid's width: counting it as "
             "room for the columns pushes the last header under a scrollbar")
+        self.assertIn(
+            "ViewportWidth",
+            m.group(0),
+            "the room for the columns is what the scroll viewer gives them; "
+            "subtracting a guess at the chrome from the grid's width overran the "
+            "viewport by a few pixels and grew a horizontal scrollbar")
+        self.assertNotIn(
+            "SystemParameters.VerticalScrollBarWidth",
+            m.group(0),
+            "the scrollbar is already out of the viewport's width, and its theme "
+            "width is not the system width")
 
 
 if __name__ == "__main__":

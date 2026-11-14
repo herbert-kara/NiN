@@ -455,12 +455,40 @@ public partial class ProfilesView
 
     private double AvailableListWidth()
     {
-        // Reserve the row numbers and the vertical scrollbar. Leaving them out is how the
-        // columns came to be fitted to 48px they did not have: they summed to more than the
-        // grid was given and the last header sat under a horizontal scrollbar.
-        var taken = (FindRowHeader(lstProfiles)?.ActualWidth ?? 0) + SystemParameters.VerticalScrollBarWidth + 2;
-        var width = lstProfiles.ActualWidth - taken;
+        // Ask the scroll viewer how much room the cells were actually given. Deriving it from
+        // the grid's width minus a guess at the chrome was how the columns came to be fitted
+        // to a few pixels they did not have: they summed past the viewport and the grid grew a
+        // horizontal scrollbar under the last header.
+        var viewport = FindScrollViewer(lstProfiles)?.ViewportWidth ?? 0;
+        if (viewport <= 0)
+        {
+            return 0;
+        }
+
+        // The rows carry the numbers in a row header, inside the same viewport.
+        var width = viewport - (FindRowHeader(lstProfiles)?.ActualWidth ?? 0);
         return width > 0 ? width : 0;
+    }
+
+    private static ScrollViewer? FindScrollViewer(DependencyObject root)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is ScrollViewer viewer)
+            {
+                return viewer;
+            }
+
+            var found = FindScrollViewer(child);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     // A window that grew leaves the fitted columns short of its new edge; one that shrank
