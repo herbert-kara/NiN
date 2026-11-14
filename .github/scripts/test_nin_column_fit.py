@@ -176,21 +176,24 @@ class NiNColumnFitTests(unittest.TestCase):
         m = re.search(r"private double AvailableListWidth\(\).*?\n    \}", src, re.S)
         self.assertIsNotNone(m, "AvailableListWidth is missing")
         self.assertIn(
-            "FindRowHeader",
+            "DataGridRowHeader",
             m.group(0),
             "the row-number column sits inside the grid's width: counting it as "
             "room for the columns pushes the last header under a scrollbar")
         self.assertIn(
-            "ViewportWidth",
+            "ScrollBar",
             m.group(0),
-            "the room for the columns is what the scroll viewer gives them; "
-            "subtracting a guess at the chrome from the grid's width overran the "
-            "viewport by a few pixels and grew a horizontal scrollbar")
+            "the room ends at the vertical scrollbar's own edge; the themed bar is "
+            "drawn a few pixels inside the viewport, and a fit that reaches under it "
+            "sums past the room the columns have")
+        self.assertIn(
+            "TransformToAncestor",
+            m.group(0),
+            "both edges are measured where they really are, not assumed from widths")
         self.assertNotIn(
             "SystemParameters.VerticalScrollBarWidth",
             m.group(0),
-            "the scrollbar is already out of the viewport's width, and its theme "
-            "width is not the system width")
+            "the scrollbar's width in the theme is not the system width")
 
 
 if __name__ == "__main__":

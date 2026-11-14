@@ -432,18 +432,19 @@ public partial class ProfilesView
         return null;
     }
 
-    private static DataGridRowHeader? FindRowHeader(DependencyObject root)
+    private static T? FindDescendant<T>(DependencyObject root, Func<T, bool>? accept = null)
+        where T : DependencyObject
     {
         var count = VisualTreeHelper.GetChildrenCount(root);
         for (var i = 0; i < count; i++)
         {
             var child = VisualTreeHelper.GetChild(root, i);
-            if (child is DataGridRowHeader header)
+            if (child is T match && (accept == null || accept(match)))
             {
-                return header;
+                return match;
             }
 
-            var found = FindRowHeader(child);
+            var found = FindDescendant(child, accept);
             if (found != null)
             {
                 return found;
@@ -455,40 +456,27 @@ public partial class ProfilesView
 
     private double AvailableListWidth()
     {
-        // Ask the scroll viewer how much room the cells were actually given. Deriving it from
-        // the grid's width minus a guess at the chrome was how the columns came to be fitted
-        // to a few pixels they did not have: they summed past the viewport and the grid grew a
-        // horizontal scrollbar under the last header.
-        var viewport = FindScrollViewer(lstProfiles)?.ViewportWidth ?? 0;
-        if (viewport <= 0)
+        // The room the columns have is the distance from the row numbers to the vertical
+        // scrollbar's own left edge. The scroll viewer's viewport reaches a few pixels
+        // further, under the themed scrollbar, and a fit that trusted it left the columns
+        // summing past the room they had, which is what switched the horizontal scrollbar on.
+        var header = FindDescendant<DataGridRowHeader>(lstProfiles);
+        var bar = FindDescendant<ScrollBar>(lstProfiles,
+            b => b.Orientation == Orientation.Vertical && b.IsVisible);
+        if (header != null && bar != null && bar.ActualWidth > 0)
         {
-            return 0;
+            var left = bar.TransformToAncestor(lstProfiles).Transform(default(Point)).X;
+            var right = header.TransformToAncestor(lstProfiles).Transform(new Point(header.ActualWidth, 0)).X;
+            var room = left - right;
+            if (room > 0)
+            {
+                return room;
+            }
         }
 
-        // The rows carry the numbers in a row header, inside the same viewport.
-        var width = viewport - (FindRowHeader(lstProfiles)?.ActualWidth ?? 0);
+        var viewport = FindDescendant<ScrollViewer>(lstProfiles)?.ViewportWidth ?? 0;
+        var width = viewport - (header?.ActualWidth ?? 0);
         return width > 0 ? width : 0;
-    }
-
-    private static ScrollViewer? FindScrollViewer(DependencyObject root)
-    {
-        var count = VisualTreeHelper.GetChildrenCount(root);
-        for (var i = 0; i < count; i++)
-        {
-            var child = VisualTreeHelper.GetChild(root, i);
-            if (child is ScrollViewer viewer)
-            {
-                return viewer;
-            }
-
-            var found = FindScrollViewer(child);
-            if (found != null)
-            {
-                return found;
-            }
-        }
-
-        return null;
     }
 
     // A window that grew leaves the fitted columns short of its new edge; one that shrank
