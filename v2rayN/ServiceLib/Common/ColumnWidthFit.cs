@@ -84,7 +84,7 @@ public static class ColumnWidthFit
         return widths;
     }
 
-    private static double Floor(double headerWidth)
+    public static double Floor(double headerWidth)
     {
         return Math.Max(MinWidth, headerWidth);
     }

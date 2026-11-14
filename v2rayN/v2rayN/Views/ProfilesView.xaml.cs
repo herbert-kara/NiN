@@ -12,6 +12,7 @@ public partial class ProfilesView
     private static Config _config;
     private static readonly string _tag = "ProfilesView";
     private bool _fittedToLayout;
+    private bool _fittedOnLoad;
 
     public ProfilesView()
     {
@@ -26,6 +27,7 @@ public partial class ProfilesView
         lstProfiles.SelectionChanged += LstProfiles_SelectionChanged;
         lstProfiles.LoadingRow += LstProfiles_LoadingRow;
         lstProfiles.SizeChanged += LstProfiles_SizeChanged;
+        lstProfiles.Loaded += LstProfiles_Loaded;
         lstGroup.PreviewMouseRightButtonDown += LstGroup_PreviewMouseRightButtonDown;
         menuSelectAll.Click += menuSelectAll_Click;
 
@@ -365,6 +367,42 @@ public partial class ProfilesView
             // MeasureHeader just measured those headers unconstrained; re-lay them out
             // under the widths they were given so nothing is drawn from that pass.
             lstProfiles.UpdateLayout();
+
+            // The fit is arithmetic on edges it measured; the grid is the truth. On the
+            // first layout the vertical scrollbar is not switched on yet, so the room came
+            // out a few pixels wide and the grid answered with a horizontal scrollbar under
+            // the last row. Whatever the arithmetic believed, take the scroll it still
+            // offers off the widest column - never below that column's own header.
+            for (var guard = 0; guard < 3; guard++)
+            {
+                var overflow = FindDescendant<ScrollViewer>(lstProfiles)?.ScrollableWidth ?? 0;
+                if (overflow <= 0.5)
+                {
+                    break;
+                }
+
+                var largest = -1;
+                for (var i = 0; i < columns.Count; i++)
+                {
+                    if (columns[i].ActualWidth > ColumnWidthFit.Floor(header[i])
+                        && (largest < 0 || columns[i].ActualWidth > columns[largest].ActualWidth))
+                    {
+                        largest = i;
+                    }
+                }
+                if (largest < 0)
+                {
+                    break;
+                }
+
+                var take = Math.Min(overflow, columns[largest].ActualWidth - ColumnWidthFit.Floor(header[largest]));
+                if (take <= 0)
+                {
+                    break;
+                }
+                columns[largest].Width = new DataGridLength(columns[largest].ActualWidth - take);
+                lstProfiles.UpdateLayout();
+            }
         }
         catch (Exception ex)
         {
@@ -477,6 +515,21 @@ public partial class ProfilesView
         var viewport = FindDescendant<ScrollViewer>(lstProfiles)?.ViewportWidth ?? 0;
         var width = viewport - (header?.ActualWidth ?? 0);
         return width > 0 ? width : 0;
+    }
+
+    // The one-shot fit can run while the grid is still building its template, before the
+    // vertical scrollbar has a width to measure against - which is why its arithmetic came
+    // out wide. Loaded is after the template is real, so the fit there starts from the
+    // scrollbar's own edge. It runs once; later changes belong to the resize path.
+    private void LstProfiles_Loaded(object sender, RoutedEventArgs e)
+    {
+        if (_fittedOnLoad || lstProfiles.Items.Count == 0)
+        {
+            return;
+        }
+
+        _fittedOnLoad = true;
+        AutofitColumnWidth();
     }
 
     // A window that grew leaves the fitted columns short of its new edge; one that shrank

@@ -167,9 +167,10 @@ class NiNColumnFitTests(unittest.TestCase):
             "the room taken back from a wide column comes out of the part above its header")
         self.assertRegex(
             src,
-            r"private static double Floor\(double headerWidth\)\s*\{\s*"
+            r"public static double Floor\(double headerWidth\)\s*\{\s*"
             r"return Math\.Max\(MinWidth, headerWidth\);",
-            "the floor is the header, with the minimum width only as the lower bound")
+            "the floor is the header, with the minimum width only as the lower bound; "
+            "the view asks this same Floor, so it cannot answer with a name it does not have")
 
     def test_the_row_numbers_are_not_given_to_the_columns(self):
         src = VIEW.read_text(encoding="utf-8-sig")
@@ -194,6 +195,47 @@ class NiNColumnFitTests(unittest.TestCase):
             "SystemParameters.VerticalScrollBarWidth",
             m.group(0),
             "the scrollbar's width in the theme is not the system width")
+
+    def test_the_grid_gets_the_last_word_on_overflow(self):
+        src = VIEW.read_text(encoding="utf-8-sig")
+        m = re.search(r"private void AutofitColumnWidth\(\).*?\n    \}", src, re.S)
+        self.assertIsNotNone(m, "AutofitColumnWidth is missing")
+        body = m.group(0)
+        self.assertIn(
+            "ScrollableWidth",
+            body,
+            "the arithmetic on measured edges can be a few pixels wide of the truth; "
+            "the scroll the grid still offers is the truth, and only it can end the "
+            "horizontal scrollbar under the last row")
+        self.assertRegex(
+            body,
+            r"columns\[largest\]\.ActualWidth - ColumnWidthFit\.Floor\(header\[largest\]\)",
+            "the overflow comes off a column that has room above its own header, or "
+            "the cure clips the header the fit exists to protect; the one Floor that "
+            "knows where the header ends lives in ColumnWidthFit, not in this view")
+        self.assertRegex(
+            body,
+            r"guard < \d+",
+            "a width that cannot end the overflow must not spin: the trim is bounded")
+        self.assertNotRegex(
+            body,
+            r"(?<!ColumnWidthFit\.)\bFloor\(",
+            "Floor belongs to ColumnWidthFit; a bare call is a name this view does not "
+            "have, and the syntax check cannot see it - only the compiler does")
+
+    def test_the_fit_is_repeated_once_the_grid_is_real(self):
+        src = VIEW.read_text(encoding="utf-8-sig")
+        self.assertIn(
+            "lstProfiles.Loaded += LstProfiles_Loaded",
+            src,
+            "the one-shot fit of the first layout runs before the vertical scrollbar "
+            "is switched on, so it measures the room as wider than it is")
+        m = re.search(r"private void LstProfiles_Loaded\(.*?\n    \}", src, re.S)
+        self.assertIsNotNone(m, "LstProfiles_Loaded is missing")
+        self.assertIn(
+            "AutofitColumnWidth()",
+            m.group(0),
+            "Loaded is the first moment the grid's own edges are real")
 
 
 if __name__ == "__main__":
