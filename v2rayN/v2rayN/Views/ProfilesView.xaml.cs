@@ -362,6 +362,9 @@ public partial class ProfilesView
             {
                 columns[i].Width = new DataGridLength(widths[i]);
             }
+            // MeasureHeader just measured those headers unconstrained; re-lay them out
+            // under the widths they were given so nothing is drawn from that pass.
+            lstProfiles.UpdateLayout();
         }
         catch (Exception ex)
         {
@@ -375,9 +378,13 @@ public partial class ProfilesView
 
     private double MeasureHeader(DataGridColumn column)
     {
+        // The realized header is the only place the real font, padding and sort
+        // arrow are all present; a bare text probe disagreed with it by enough to
+        // leave "Remarks" at 58px and trim it to "R..".
+        var measured = MeasureRealizedHeader(column);
         if (column.Header is not string text || text.Length == 0)
         {
-            return 0;
+            return measured;
         }
 
         var probe = new TextBlock
@@ -388,7 +395,41 @@ public partial class ProfilesView
             FontWeight = FontWeights.SemiBold
         };
         probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        return Math.Ceiling(probe.DesiredSize.Width) + HeaderChrome;
+        // Header cells that are scrolled out of view have no realized element.
+        return Math.Max(measured, Math.Ceiling(probe.DesiredSize.Width) + HeaderChrome);
+    }
+
+    private double MeasureRealizedHeader(DataGridColumn column)
+    {
+        var header = FindHeader(lstProfiles, column);
+        if (header == null)
+        {
+            return 0;
+        }
+
+        header.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return Math.Ceiling(header.DesiredSize.Width);
+    }
+
+    private static DataGridColumnHeader FindHeader(DependencyObject root, DataGridColumn column)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is DataGridColumnHeader header && ReferenceEquals(header.Column, column))
+            {
+                return header;
+            }
+
+            var found = FindHeader(child, column);
+            if (found != null)
+            {
+                return found;
+            }
+        }
+
+        return null;
     }
 
     private double AvailableListWidth()

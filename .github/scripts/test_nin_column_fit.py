@@ -49,6 +49,28 @@ class NiNColumnFitTests(unittest.TestCase):
             int(m.group(1)), 30,
             "an allowance below the real header chrome re-introduces the clipping")
 
+    def test_the_header_is_measured_from_the_rendered_element_first(self):
+        """A text probe on its own left "Remarks" at 58px and trimmed it to "R.."."""
+        src = VIEW.read_text(encoding="utf-8-sig")
+        m = re.search(r"private double MeasureHeader\(DataGridColumn.*?\n    \}", src, re.S)
+        self.assertIsNotNone(m, "MeasureHeader is missing")
+        block = m.group(0)
+        self.assertIn(
+            "MeasureRealizedHeader",
+            block,
+            "the rendered header is the only place the real font, padding and sort "
+            "arrow are all present; guessing the chrome from the text width is what "
+            "left a header narrower than its own label")
+        self.assertRegex(
+            block,
+            r"Math\.Max\(\s*measured",
+            "a header scrolled out of view falls back to the text probe, so the "
+            "wider of the two has to win")
+        self.assertIn(
+            "DataGridColumnHeader",
+            src,
+            "the realized header element is looked up through the visual tree")
+
     def test_the_fit_is_measured_synchronously(self):
         src = VIEW.read_text(encoding="utf-8-sig")
         m = re.search(r"private void AutofitColumnWidth\(\).*?\n    \}", src, re.S)
