@@ -11,6 +11,7 @@ public partial class ProfilesView
 {
     private static Config _config;
     private static readonly string _tag = "ProfilesView";
+    private bool _fittedToLayout;
 
     public ProfilesView()
     {
@@ -24,6 +25,7 @@ public partial class ProfilesView
         lstProfiles.PreviewKeyDown += LstProfiles_PreviewKeyDown;
         lstProfiles.SelectionChanged += LstProfiles_SelectionChanged;
         lstProfiles.LoadingRow += LstProfiles_LoadingRow;
+        lstProfiles.SizeChanged += LstProfiles_SizeChanged;
         lstGroup.PreviewMouseRightButtonDown += LstGroup_PreviewMouseRightButtonDown;
         menuSelectAll.Click += menuSelectAll_Click;
 
@@ -179,6 +181,18 @@ public partial class ProfilesView
         {
             lstProfiles.ScrollIntoView(lstProfiles.SelectedItem, null);
         }
+
+        // The rows are laid out here for the first time, so this is the earliest moment
+        // the columns can be fitted against real content. This runs whatever the autofit
+        // setting says: a first look that clips every header is a bug, not a preference,
+        // so the setting only governs the adjustments that come later (resize, toolbar).
+        // Refitting on every refresh would make the columns twitch while a ping streams
+        // its delays in, hence the one-shot flag.
+        if (!_fittedToLayout && AvailableListWidth() > 0)
+        {
+            AutofitColumnWidth();
+            _fittedToLayout = true;
+        }
     }
 
     private void LstProfiles_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -320,19 +334,85 @@ public partial class ProfilesView
         AutofitColumnWidth();
     }
 
+    // WPF sizes an Auto column from its cells alone, so "Delay (ms)" above a "-1" cell
+    // was cut to "Dela" and the columns together stopped short of the window, leaving a
+    // dead band on the right. Fit the header too, then spend the leftover width.
     private void AutofitColumnWidth()
     {
         try
         {
-            foreach (var it in lstProfiles.Columns)
+            var columns = lstProfiles.Columns.Where(t => t.Visibility == Visibility.Visible).ToList();
+            if (columns.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var it in columns)
             {
                 it.Width = new DataGridLength(1, DataGridLengthUnitType.Auto);
+            }
+            // Measure now instead of waiting for the next layout pass, otherwise the
+            // grid is drawn once at Auto and visibly jumps when the fit lands.
+            lstProfiles.UpdateLayout();
+
+            var content = columns.Select(t => t.ActualWidth).ToArray();
+            var header = columns.Select(t => MeasureHeader(t)).ToArray();
+            var widths = ColumnWidthFit.Fit(content, header, AvailableListWidth());
+            for (var i = 0; i < columns.Count; i++)
+            {
+                columns[i].Width = new DataGridLength(widths[i]);
             }
         }
         catch (Exception ex)
         {
             Logging.SaveLog(_tag, ex);
         }
+    }
+
+    // MaterialDesign pads the header on both sides and keeps room for the sort arrow;
+    // without an allowance here a header looks fitted while its last letter is clipped.
+    private const double HeaderChrome = 42;
+
+    private double MeasureHeader(DataGridColumn column)
+    {
+        if (column.Header is not string text || text.Length == 0)
+        {
+            return 0;
+        }
+
+        var probe = new TextBlock
+        {
+            Text = text,
+            FontFamily = lstProfiles.FontFamily,
+            FontSize = lstProfiles.FontSize,
+            FontWeight = FontWeights.SemiBold
+        };
+        probe.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        return Math.Ceiling(probe.DesiredSize.Width) + HeaderChrome;
+    }
+
+    private double AvailableListWidth()
+    {
+        // Reserve the vertical scrollbar, or a horizontal one appears the moment the
+        // list is long enough to scroll.
+        var width = lstProfiles.ActualWidth - SystemParameters.VerticalScrollBarWidth - 2;
+        return width > 0 ? width : 0;
+    }
+
+    // A window that grew leaves the fitted columns short of its new edge; one that shrank
+    // would force a horizontal scrollbar. Refit on a real change rather than on every
+    // pixel of a drag, which is what makes a live resize feel sticky.
+    private void LstProfiles_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        if (_config?.UiItem.EnableAutoAdjustMainLvColWidth != true
+            || lstProfiles.Items.Count == 0
+            || Math.Abs(e.NewSize.Width - e.PreviousSize.Width) < 24)
+        {
+            return;
+        }
+
+        _fittedToLayout = true;
+        AutofitColumnWidth();
     }
 
     private void TxtServerFilter_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -353,6 +433,21 @@ public partial class ProfilesView
         {
             var lvColumnItem = _config.UiItem.MainColumnItem.OrderBy(t => t.Index).ToList();
             var displayIndex = 0;
+
+            // A width saved from the content-only Auto layout is narrower than its own
+            // header - "Dela" over "Delay (ms)" - and applying it is what brought the
+            // clipped look back on every start. That is a measurement artifact, not a
+            // layout choice: keep the saved order and visibility, drop the widths and let
+            // the first fit derive them from the header and the real cells.
+            var savedWidthsAreReadable = lvColumnItem
+                .Where(t => t.Width >= 0)
+                .Join(lstProfiles.Columns.Cast<MyDGTextColumn>(), t => t.Name, c => c.ExName, (t, c) => (t.Width, Header: MeasureHeader(c)))
+                .All(p => p.Width >= p.Header);
+            if (savedWidthsAreReadable && lvColumnItem.Any(t => t.Width >= 0))
+            {
+                _fittedToLayout = true;
+            }
+
             foreach (var item in lvColumnItem)
             {
                 foreach (var item2 in lstProfiles.Columns.Cast<MyDGTextColumn>())
@@ -365,7 +460,9 @@ public partial class ProfilesView
                         }
                         else
                         {
-                            item2.Width = item.Width;
+                            item2.Width = savedWidthsAreReadable
+                                ? item.Width
+                                : new DataGridLength(1, DataGridLengthUnitType.Auto);
                             item2.DisplayIndex = displayIndex++;
                         }
                         if (item.Name.StartsWith("to", StringComparison.CurrentCultureIgnoreCase))

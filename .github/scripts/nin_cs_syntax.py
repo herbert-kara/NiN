@@ -13,6 +13,8 @@ from pathlib import Path
 # the tree does not make this noisy.
 WATCHED = [
     "v2rayN/ServiceLib/Common/NiNRelease.cs",
+    "v2rayN/ServiceLib/Common/ColumnWidthFit.cs",
+    "v2rayN/ServiceLib.Tests/Common/ColumnWidthFitTests.cs",
     "v2rayN/ServiceLib/Common/ProfileCountry.cs",
     "v2rayN/ServiceLib/Handler/Fmt/ProxyOutboundFmt.cs",
     "v2rayN/ServiceLib/Handler/Fmt/SsConfFmt.cs",
