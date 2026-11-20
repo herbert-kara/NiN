@@ -274,6 +274,30 @@ public sealed class AetherSession
     internal bool StopRequested { get; set; }
 
     /// <summary>
+    /// PattN: how many times this session's core has been started again after it ran and died
+    /// (<see cref="AetherCoreManager.MaxSessionRestarts" />); the count stays with the session, so a restart cannot
+    /// breed another one.
+    /// </summary>
+    internal int Restarts { get; set; }
+
+    /// <summary>
+    /// PattN: the words of the core that died, cleared for the one started again: readiness needs the new core's own
+    /// word, and the last error of the old one is no reason to stop the new one.
+    /// </summary>
+    internal void ResetForRestart()
+    {
+        _wordSeen = !NeedsWord;
+        _noEchKey = false;
+        _hadOutput = false;
+        _lastError = null;
+        lock (_processGate)
+        {
+            _process = null;
+            _chainEnd = null;
+        }
+    }
+
+    /// <summary>
     /// Whether a scan of <paramref name="protocol" /> would disturb this session: it opens a second tunnel on the key of
     /// that protocol (PattNG AetherSession.disturbedByScanOf).
     /// </summary>
@@ -351,6 +375,12 @@ public sealed class AetherCoreManager
 
     /// <summary>A core that ends within this time without a word did not really start (design 2.4.4).</summary>
     public static readonly TimeSpan StartWindow = TimeSpan.FromSeconds(1);
+
+    /// <summary>
+    /// PattN: how many times a session core that ran and then died is started again before the session is given up. One:
+    /// a scan the path reset comes back by itself, and a path that stays broken must not keep the cores starting forever.
+    /// </summary>
+    public const int MaxSessionRestarts = 1;
 
     /// <summary>The questions of <see cref="AnswersSocksAsync" />, with the connections they keep waiting, one per port, for the whole process.</summary>
     private static readonly AetherSocksAnswers SocksAnswers = new(ProbeTimeout);
@@ -507,54 +537,64 @@ public sealed class AetherCoreManager
                 _sessionStarting = false;
             }
             RaiseSessionChanged();
-            IAetherCoreProcess process;
-            try
-            {
-                PsiphonStateDir(_host.Folders.ConfigDir, _host.Folders.WorkDir);
-                ReapLeftovers();
-                process = _host.Spawn(AetherProcess.StartInfo(_host.Folders, arguments, AetherRole.Session), line =>
-                {
-                    var ended = session.Saw(line);
-                    RelayLine(SourceOf(AetherRole.Session), line);
-                    if (ended != null)
-                    {
-                        EndForChain(session, ended);
-                    }
-                });
-                // A core that ends at once without a word did not start (design 2.4.4): its time counts from its spawn,
-                // not from the work before it, a leftover core killed and waited for among it.
-                session.Lifetime.Restart();
-            }
-            catch (Exception ex) when (IsStartFailure(ex))
-            {
-                Logging.SaveLog("AetherCore: failed to launch the core", ex);
-                lock (_gate)
-                {
-                    if (_session == session)
-                    {
-                        _session = null;
-                    }
-                }
-                RaiseSessionChanged();
-                return ResUI.MsgAetherCoreCannotStart;
-            }
-            var endedEarly = session.Attach(process);
-            _host.Adopt?.Invoke(process);
-            if (_host.UsesPidFiles)
-            {
-                AetherLeftovers.Write(_host.Folders.SessionPidFile, process);
-            }
-            _ = WatchAsync(session, process);
-            if (endedEarly != null)
-            {
-                EndForChain(session, endedEarly);
-            }
-            return null;
+            return Spawn(session);
         }
         finally
         {
             _lifecycle.Release();
         }
+    }
+
+    /// <summary>
+    /// Spawns the core of <paramref name="session" /> with the arguments it already holds, attaches it and watches it;
+    /// the message to tell the user when it could not be spawned at all, null when it runs. Used by a start and by the
+    /// one restart a core that ran and then died gets (<see cref="WatchAsync" />).
+    /// </summary>
+    private string? Spawn(AetherSession session)
+    {
+        IAetherCoreProcess process;
+        try
+        {
+            PsiphonStateDir(_host.Folders.ConfigDir, _host.Folders.WorkDir);
+            ReapLeftovers();
+            process = _host.Spawn(AetherProcess.StartInfo(_host.Folders, session.Arguments, AetherRole.Session), line =>
+            {
+                var ended = session.Saw(line);
+                RelayLine(SourceOf(AetherRole.Session), line);
+                if (ended != null)
+                {
+                    EndForChain(session, ended);
+                }
+            });
+            // A core that ends at once without a word did not start (design 2.4.4): its time counts from its spawn,
+            // not from the work before it, a leftover core killed and waited for among it.
+            session.Lifetime.Restart();
+        }
+        catch (Exception ex) when (IsStartFailure(ex))
+        {
+            Logging.SaveLog("AetherCore: failed to launch the core", ex);
+            lock (_gate)
+            {
+                if (_session == session)
+                {
+                    _session = null;
+                }
+            }
+            RaiseSessionChanged();
+            return ResUI.MsgAetherCoreCannotStart;
+        }
+        var endedEarly = session.Attach(process);
+        _host.Adopt?.Invoke(process);
+        if (_host.UsesPidFiles)
+        {
+            AetherLeftovers.Write(_host.Folders.SessionPidFile, process);
+        }
+        _ = WatchAsync(session, process);
+        if (endedEarly != null)
+        {
+            EndForChain(session, endedEarly);
+        }
+        return null;
     }
 
     /// <summary>
@@ -1374,6 +1414,7 @@ public sealed class AetherCoreManager
         // once what the old core started is gone too, with its listener and Psiphon's datastore lock (PattNG queues it
         // behind the old core's end on the core's executor).
         string? message = null;
+        var restart = false;
         await _lifecycle.WaitAsync().ConfigureAwait(false);
         try
         {
@@ -1382,18 +1423,34 @@ public sealed class AetherCoreManager
                 // Stopped on request, or by a start that came first: that stop has ended it already.
                 if (_session == session && !session.StopRequested)
                 {
-                    _session = null;
-                    message = CouldNotStart(exitCode, session.Lifetime.Elapsed, session.HadOutput)
-                        ? ResUI.MsgAetherCoreCannotStart
-                        : StoppedMessage(session.NoEchKey, session.LastError, session.ChainEnd);
-                    _stoppedMessage = message;
+                    // PattN: a core that got past its start window and then died gets one more start before the session
+                    // is given up - a scan the path reset must not cost the user the whole connection (Xray and the
+                    // system proxy stay up). One that never got going is reported as it was.
+                    restart = session.Restarts < MaxSessionRestarts
+                        && session.Lifetime.Elapsed >= StartWindow
+                        && !CouldNotStart(exitCode, session.Lifetime.Elapsed, session.HadOutput);
+                    if (restart)
+                    {
+                        session.Restarts++;
+                    }
+                    else
+                    {
+                        _session = null;
+                        message = CouldNotStart(exitCode, session.Lifetime.Elapsed, session.HadOutput)
+                            ? ResUI.MsgAetherCoreCannotStart
+                            : StoppedMessage(session.NoEchKey, session.LastError, session.ChainEnd);
+                        _stoppedMessage = message;
+                    }
                 }
             }
-            if (message != null)
+            if (message != null || restart)
             {
-                RaiseSessionChanged();
+                if (message != null)
+                {
+                    RaiseSessionChanged();
+                }
                 // What it started may still run, holding its listener and Psiphon's datastore lock until it notices its
-                // pipes gone.
+                // pipes gone. A restart needs them gone before the new core binds.
                 await EndProcessAsync(process, SourceOf(AetherRole.Session)).ConfigureAwait(false);
                 if (_host.UsesPidFiles)
                 {
@@ -1405,6 +1462,16 @@ public sealed class AetherCoreManager
         finally
         {
             _lifecycle.Release();
+        }
+        if (restart)
+        {
+            Logging.SaveLog($"AetherCore: the core exited on its own with code {exitCode}; starting it again ({session.Restarts}/{MaxSessionRestarts})");
+            message = await RestartAsync(session).ConfigureAwait(false);
+            if (message == null)
+            {
+                return;
+            }
+            _stoppedMessage = message;
         }
         if (message == null)
         {
@@ -1426,6 +1493,33 @@ public sealed class AetherCoreManager
             {
                 Logging.SaveLog("AetherCore: the end of the session could not be handled", ex);
             }
+        }
+    }
+
+    /// <summary>
+    /// PattN: starts the core of <paramref name="session" /> again, on the same arguments and the same generation, so
+    /// Xray's outbounds and the turn the cores hold keep pointing at it. Null when it runs, or when a stop or a start
+    /// that came meanwhile owns the session now; the message to tell the user when the core could not be spawned.
+    /// </summary>
+    private async Task<string?> RestartAsync(AetherSession session)
+    {
+        await _lifecycle.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            lock (_gate)
+            {
+                if (_session != session || session.StopRequested)
+                {
+                    return null;
+                }
+            }
+            session.ResetForRestart();
+            RaiseSessionChanged();
+            return Spawn(session);
+        }
+        finally
+        {
+            _lifecycle.Release();
         }
     }
 

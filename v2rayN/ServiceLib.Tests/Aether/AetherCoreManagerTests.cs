@@ -700,6 +700,67 @@ public class AetherCoreManagerTests : IDisposable
         await (await Next(ends)).Message.Should().BeEqualTo(ResUI.MsgAetherCoreCannotStart);
     }
 
+    // PattN: a tunnel that got past its start window and then died - a scan the path reset, which the app reported as
+    // "the core exited on its own with code -1" after some fifty seconds and stopped every core with it - gets one more
+    // start before the session is given up. Xray and the system proxy keep running, so the traffic comes back by itself.
+    [Test]
+    public async Task ACoreThatRanAndThenDiedIsStartedOnceMore()
+    {
+        var rig = new Rig(_root);
+        var ends = rig.WatchEnds();
+
+        await rig.Manager.StartSessionAsync(Core(), generation: 7);
+        rig.Core(0).Write("[2026-10-21T10:00:00.000Z INFO  aether] [+] scanning");
+        await Task.Delay(AetherCoreManager.StartWindow + TimeSpan.FromMilliseconds(300));
+        rig.Core(0).Exit(1);
+
+        await Task.Delay(900);
+        await ends.Reader.TryRead(out _).Should().BeFalse();
+        await rig.Cores.Count.Should().BeEqualTo(2);
+        await rig.Manager.Session.Should().NotBeNull();
+        await rig.Manager.Session!.Generation.Should().BeEqualTo(7);
+        await rig.Core(1).Killed.Should().BeFalse();
+    }
+
+    [Test]
+    public async Task TheSecondDeathEndsTheSessionAndNoThirdCoreIsStarted()
+    {
+        var rig = new Rig(_root);
+        var ends = rig.WatchEnds();
+
+        await rig.Manager.StartSessionAsync(Core(), generation: 7);
+        rig.Core(0).Write("[2026-10-21T10:00:00.000Z INFO  aether] [+] scanning");
+        await Task.Delay(AetherCoreManager.StartWindow + TimeSpan.FromMilliseconds(300));
+        rig.Core(0).Exit(1);
+
+        // The second core gets its turn as well, and dies past the window too.
+        await Task.Delay(900);
+        await rig.Cores.Count.Should().BeEqualTo(2);
+        rig.Core(1).Write("[2026-10-21T10:00:00.000Z INFO  aether] [+] scanning");
+        await Task.Delay(AetherCoreManager.StartWindow + TimeSpan.FromMilliseconds(300));
+        rig.Core(1).Exit(1);
+
+        var ended = await Next(ends);
+        await ended.Generation.Should().BeEqualTo(7);
+        await rig.Cores.Count.Should().BeEqualTo(2);
+        await rig.Manager.Session.Should().BeNull();
+    }
+
+    [Test]
+    public async Task ACoreThatNeverGotGoingIsNotStartedAgain()
+    {
+        // It said a word, but died inside the start window: a restart would only repeat what just failed.
+        var rig = new Rig(_root);
+        var ends = rig.WatchEnds();
+
+        await rig.Manager.StartSessionAsync(Core());
+        rig.Core(0).Write("[2026-10-21T10:00:00.000Z INFO  aether] [+] scanning");
+        rig.Core(0).Exit(1);
+
+        await Next(ends);
+        await rig.Cores.Count.Should().BeEqualTo(1);
+    }
+
     [Test]
     public async Task AStopOnRequestRaisesNothing()
     {
