@@ -104,7 +104,7 @@ public class AetherCoreManagerTests : IDisposable
         private readonly List<string> _events = [];
         private int _ids;
 
-        public Rig(string root, int? exitPort = 41234, bool usesPidFiles = false)
+        public Rig(string root, int? exitPort = 41234, bool usesPidFiles = false, TimeSpan? restartEarnBack = null)
         {
             Folders = new AetherFolders(Path.Combine(root, "guiConfigs"), Path.Combine(root, "bin", "aether"));
             Manager = new AetherCoreManager(new AetherCoreHost
@@ -151,6 +151,7 @@ public class AetherCoreManagerTests : IDisposable
                 ExitWait = TimeSpan.FromMilliseconds(300),
                 ProbeExitWait = TimeSpan.FromMilliseconds(300),
                 TestWait = TimeSpan.FromSeconds(3),
+                RestartEarnBack = restartEarnBack ?? TimeSpan.FromSeconds(60),
                 UsesPidFiles = usesPidFiles,
             })
             {
@@ -759,6 +760,30 @@ public class AetherCoreManagerTests : IDisposable
 
         await Next(ends);
         await rig.Cores.Count.Should().BeEqualTo(1);
+    }
+
+    // PattN: the path here resets every few minutes, so one restart for the whole session is not enough: the second
+    // drop would leave the user disconnected again. A core that ran long enough to earn it back is started again
+    // however many times it has been; one that dies seconds after every start still is not.
+    [Test]
+    public async Task ACoreThatRanLongEnoughEarnsAnotherRestart()
+    {
+        var rig = new Rig(_root, restartEarnBack: AetherCoreManager.StartWindow + TimeSpan.FromMilliseconds(200));
+        var ends = rig.WatchEnds();
+
+        await rig.Manager.StartSessionAsync(Core(), generation: 7);
+        for (var i = 0; i < 3; i++)
+        {
+            rig.Core(i).Write("[2026-10-21T10:00:00.000Z INFO  aether] [+] scanning");
+            await Task.Delay(AetherCoreManager.StartWindow + TimeSpan.FromMilliseconds(400));
+            rig.Core(i).Exit(1);
+            await Task.Delay(900);
+        }
+
+        await ends.Reader.TryRead(out _).Should().BeFalse();
+        await rig.Cores.Count.Should().BeEqualTo(4);
+        await rig.Manager.Session.Should().NotBeNull();
+        await rig.Manager.Session!.Generation.Should().BeEqualTo(7);
     }
 
     [Test]

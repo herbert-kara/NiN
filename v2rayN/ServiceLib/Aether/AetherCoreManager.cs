@@ -133,6 +133,14 @@ public sealed class AetherCoreHost
     /// <summary>How long a test of the running configuration waits for its Aether core to carry traffic (<see cref="AetherCoreManager.TestBudget" />).</summary>
     public TimeSpan TestWait { get; init; } = AetherCoreManager.TestBudget;
 
+    /// <summary>
+    /// PattN: how long a session core must have run before a death earns another restart, once the session's one
+    /// restart is spent (<see cref="AetherCoreManager.MaxSessionRestarts" />). A path that resets every few minutes
+    /// must not leave the user disconnected after the second drop, while a core that dies seconds after every start
+    /// must not start forever.
+    /// </summary>
+    public TimeSpan RestartEarnBack { get; init; } = TimeSpan.FromSeconds(60);
+
     /// <summary>What PattN's own cores run with.</summary>
     public static AetherCoreHost Default()
     {
@@ -1425,10 +1433,12 @@ public sealed class AetherCoreManager
                 {
                     // PattN: a core that got past its start window and then died gets one more start before the session
                     // is given up - a scan the path reset must not cost the user the whole connection (Xray and the
-                    // system proxy stay up). One that never got going is reported as it was.
-                    restart = session.Restarts < MaxSessionRestarts
-                        && session.Lifetime.Elapsed >= StartWindow
-                        && !CouldNotStart(exitCode, session.Lifetime.Elapsed, session.HadOutput);
+                    // system proxy stay up). One that never got going is reported as it was. A core that ran long
+                    // enough to earn it back is started again however many times it has been: a path that resets every
+                    // few minutes must not spend the one restart and leave the user disconnected.
+                    restart = session.Lifetime.Elapsed >= StartWindow
+                        && !CouldNotStart(exitCode, session.Lifetime.Elapsed, session.HadOutput)
+                        && (session.Restarts < MaxSessionRestarts || session.Lifetime.Elapsed >= _host.RestartEarnBack);
                     if (restart)
                     {
                         session.Restarts++;

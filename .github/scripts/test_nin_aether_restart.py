@@ -37,6 +37,15 @@ class NiNAetherRestartTests(unittest.TestCase):
         self.assertRegex(self.src, r"public const int MaxSessionRestarts = 1;",
                          "one restart: enough for a path that reset, not a loop")
 
+    def test_a_core_that_ran_long_enough_earns_another_restart(self):
+        watch = body(self.src, "private async Task WatchAsync(")
+        self.assertIn("session.Restarts < MaxSessionRestarts || session.Lifetime.Elapsed >= _host.RestartEarnBack", watch,
+                      "a path that resets every few minutes must not spend the session's one restart and leave "
+                      "the user disconnected after the second drop")
+        self.assertIn("public TimeSpan RestartEarnBack { get; init; } = TimeSpan.FromSeconds(60);", self.src,
+                      "the earn-back is a host knob so the tests can shorten it, and a minute by default: a core "
+                      "that dies seconds after every start must not start forever")
+
     def test_the_count_stays_with_the_session(self):
         self.assertIn("internal int Restarts { get; set; }", self.src,
                       "a new session per restart would reset the count and breed restarts forever")
