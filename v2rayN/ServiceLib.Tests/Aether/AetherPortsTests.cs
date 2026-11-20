@@ -1,3 +1,5 @@
+using TUnit.Assertions.Enums;
+
 namespace ServiceLib.Tests.Aether;
 
 public class AetherPortsTests
@@ -136,5 +138,67 @@ public class AetherPortsTests
         // The last port of all has no port after it for Tor.
         var high = new Queue<int>([65535, 41001]);
         await AetherPorts.ScanPort(Profile(it => it with { AetherTor = "reverse" }), p, () => high.Dequeue()).Should().BeEqualTo(41001);
+    }
+
+    // PattN: another program may hold one of the four ports - a VPN client on 10820 made every Aether core exit with
+    // "os error 10048" before it scanned, and the app only said "the tunnel did not come up". The block moves to the
+    // nearest one above it whose four ports are all free, so a taken port no longer costs the whole profile.
+    [Test]
+    public async Task ABlockAnotherProgramHoldsMovesToTheNearestFreeOneAboveIt()
+    {
+        const int preferred = AetherPorts.DefaultListenPort;
+        var held = new HashSet<int> { preferred + 1 };
+        await AetherPorts.FreeListenPort(preferred, [], (port, _) => !held.Contains(port)).Should().BeEqualTo(preferred + 2);
+        // A block nobody holds is kept: the setting is not moved for nothing.
+        await AetherPorts.FreeListenPort(preferred, [], (_, _) => true).Should().BeEqualTo(preferred);
+        // The port taken may be the last of the block, not only the second: then three bases still touch it.
+        var last = new HashSet<int> { preferred + AetherPorts.SecondaryOffset };
+        await AetherPorts.FreeListenPort(preferred, [], (port, _) => !last.Contains(port)).Should().BeEqualTo(preferred + 4);
+    }
+
+    [Test]
+    public async Task TheMovedBlockStaysClearOfTheAppsOwnPorts()
+    {
+        var local = AetherPorts.LocalPortsOf(10808).ToArray();
+        var held = new HashSet<int> { 10810 };
+        var port = AetherPorts.FreeListenPort(10809, local, (each, _) => !held.Contains(each));
+        await port.Should().BeEqualTo(10815);
+        for (var offset = 0; offset <= AetherPorts.SecondaryOffset; offset++)
+        {
+            await local.Should().NotContain(port + offset);
+        }
+    }
+
+    [Test]
+    public async Task EveryPortOfTheBlockIsProbedOverUdpAsWell()
+    {
+        var ports = new List<int>();
+        var overUdp = new List<bool>();
+        AetherPorts.FreeListenPort(10819, [], (port, udp) =>
+        {
+            ports.Add(port);
+            overUdp.Add(udp);
+            return true;
+        });
+        // The secondary-socks inbound is UDP as well, so a TCP-only probe calls a taken block free.
+        await ports.Should().BeEquivalentTo([10819, 10820, 10821, 10822], CollectionOrdering.Matching);
+        await overUdp.Should().BeEquivalentTo([true, true, true, true], CollectionOrdering.Matching);
+    }
+
+    [Test]
+    public async Task WithNoFreeBlockNearbyTheSettingIsKeptSoTheTakenPortIsStillNamed()
+    {
+        const int preferred = AetherPorts.DefaultListenPort;
+        var probes = 0;
+        await AetherPorts.FreeListenPort(preferred, [], (_, _) =>
+        {
+            probes++;
+            return false;
+        }).Should().BeEqualTo(preferred);
+        // The search is bounded: it does not walk the port range looking for a free block.
+        await (probes <= 4 * (AetherPorts.FreeBlockSearch + 1)).Should().BeTrue();
+        // Nor does it run past the last port that has three after it.
+        await AetherPorts.FreeListenPort(AetherPorts.LastListenPort, [], (_, _) => false)
+            .Should().BeEqualTo(AetherPorts.LastListenPort);
     }
 }

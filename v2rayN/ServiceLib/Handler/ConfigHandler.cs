@@ -70,6 +70,20 @@ public static class ConfigHandler
         }
 
         config.RoutingBasicItem ??= new();
+        // PattN: one port of the Aether block held by another program (a VPN client on the tunnel's own listener) made
+        // every core exit with "address in use" before it scanned. Move the whole block to the nearest free one here, at
+        // the single load of the settings, so every reader of AetherListenPort dials the same four ports.
+        var aetherPort = AetherPorts.ListenPortOf(config.CoreBasicItem.AetherListenPort);
+        var freeAetherPort = AetherPorts.FreeListenPort(
+            aetherPort,
+            AetherPorts.LocalPortsOf(config.Inbound?.FirstOrDefault()?.LocalPort ?? 10808),
+            AetherCoreLoad.CanListen);
+        if (freeAetherPort != aetherPort)
+        {
+            config.CoreBasicItem.AetherListenPort = freeAetherPort;
+            Logging.SaveLog($"{_tag}: Aether listen port {aetherPort} is taken; the block moves to {freeAetherPort}..{AetherPorts.SecondarySocksPortOf(freeAetherPort)}");
+        }
+
         if (config.RoutingBasicItem.DomainStrategy.IsNullOrEmpty())
         {
             config.RoutingBasicItem.DomainStrategy = Global.DomainStrategies.First();

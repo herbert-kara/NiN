@@ -46,6 +46,45 @@ public static class AetherPorts
         return listenPort + SecondaryOffset;
     }
 
+    /// <summary>How many ports above the setting's block the search for a free one goes (PattN).</summary>
+    public const int FreeBlockSearch = 64;
+
+    /// <summary>
+    /// PattN: the Aether listen port to run with. <paramref name="preferred" /> when its whole block can be listened on;
+    /// otherwise the nearest port above it whose block of four is free as well and holds none of the app's own
+    /// <paramref name="localPorts" />. Another program holding one port of the block (a VPN client on the tunnel's own
+    /// listener) made every core exit with "address in use" before it scanned, so the block moves instead of the profile
+    /// dying. <paramref name="preferred" /> when no block comes within <see cref="FreeBlockSearch" /> ports, so the caller
+    /// still names the port that is taken.
+    /// </summary>
+    public static int FreeListenPort(int preferred, IEnumerable<int> localPorts, Func<int, bool, bool> canListen)
+    {
+        var own = localPorts.ToHashSet();
+        if (BlockIsFree(preferred, own, canListen))
+        {
+            return preferred;
+        }
+        for (var step = 1; step <= FreeBlockSearch; step++)
+        {
+            var candidate = preferred + step;
+            if (candidate > LastListenPort)
+            {
+                break;
+            }
+            if (BlockIsFree(candidate, own, canListen))
+            {
+                return candidate;
+            }
+        }
+        return preferred;
+    }
+
+    /// <summary>Whether every port of the block of <paramref name="basis" /> is free and none of them the app's own.</summary>
+    private static bool BlockIsFree(int basis, HashSet<int> own, Func<int, bool, bool> canListen)
+    {
+        return Enumerable.Range(basis, SecondaryOffset + 1).All(port => !own.Contains(port) && canListen(port, true));
+    }
+
     /// <summary>
     /// PattN: how many ports from the mixed port on are the app's own: the mixed port and the six after it
     /// (AppManager.GetLocalPort: the second and the LAN SOCKS port, the PAC port, Xray's API, and the API of sing-box or
